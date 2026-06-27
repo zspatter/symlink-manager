@@ -28,7 +28,7 @@ parent-repo/
 
 ## Setup & Configuration
 
-To use this manager, you must create a `config.json` and a `manifest.json` in the root of your parent repository. 
+To use this manager, create a `config.json` in the root of your parent repository. Each `skyrim_batch` profile also needs a `manifest.json` under its `source_root` (the repository root when `source_root` is `"."`).
 
 ### `config.json`
 Each entry is a **profile** keyed by name. Its `type` selects how files are formatted and how sources map to link targets. `type` defaults to `skyrim_batch` when omitted, so existing configs keep working.
@@ -79,7 +79,7 @@ Acts as the routing table for files in your `variants/` directory.
 
 ## Generated Documentation
 
-Running `symlink-audit` will automatically audit your physical files against your `manifest.json` and generate a `manifest.md` file in the root of your parent repository. 
+Running `symlink-audit --source-root <dir>` will automatically audit your physical files against your `manifest.json` and generate a `manifest.md` alongside it (under the profile's `source_root`; omit the flag when files live at the repository root). 
 
 Here is an example of the generated output:
 
@@ -117,7 +117,7 @@ Then run these commands from the root of your **parent repository** (or pass `--
 *   **Deploy Links:** `symlink-deploy <profile>`
 *   **Remove Links (Teardown):** `symlink-deploy <profile> --remove`
 *   **Format Only (no deploy):** `symlink-format <profile>`
-*   **Audit & Generate Docs:** `symlink-audit`
+*   **Audit & Generate Docs:** `symlink-audit` (add `--source-root <dir>` for a siloed domain)
 *   **Full Pipeline (Format -> Audit -> Deploy):** `symlink-build <profile>`
 
 Each is also a subcommand of `python -m symlink_manager` (e.g. `python -m symlink_manager deploy <profile>`) if you would rather not rely on the console scripts being on `PATH`.
