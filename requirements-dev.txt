@@ -1,8 +1,0 @@
-# Development dependencies (tests only).
-#
-# The engine itself has NO third-party runtime dependencies — it runs on the
-# Python standard library alone. This file exists solely to run the test suite.
-#
-# pytest 7.0 is the floor: the `pythonpath` setting in pyproject.toml that makes
-# the scripts/ modules importable during collection was introduced in pytest 7.
-pytest>=7.0

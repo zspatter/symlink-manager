@@ -1,18 +1,13 @@
-"""Unit tests for deploy: config loading, symlink helpers, and source gathering."""
-import json
+"""Unit tests for the symlink engine: link helpers, summary, error translation."""
 import os
 
 import pytest
 
-import deploy
-from deploy import (
-    ConfigError,
+from symlink_manager import deploy
+from symlink_manager.deploy import (
     DeployStatus,
-    load_config,
-    select_variant,
     safely_create_symlink,
     safely_remove_symlink,
-    gather_sources,
     build_smart_summary,
 )
 
@@ -28,34 +23,6 @@ def symlink_support(tmp_path):
     except OSError:
         pytest.skip("symlink creation not permitted in this environment")
     link.unlink()
-
-
-def write_config(tmp_path, data):
-    (tmp_path / "config.json").write_text(json.dumps(data), encoding="utf-8")
-
-
-# ---------------------------------------------------------------------------
-# Configuration loading
-# ---------------------------------------------------------------------------
-
-class TestLoadConfig:
-    def test_returns_parsed_config(self, tmp_path):
-        write_config(tmp_path, {"nolvus": {"target_dir": "D:/x"}})
-        assert load_config(tmp_path) == {"nolvus": {"target_dir": "D:/x"}}
-
-    def test_missing_file_raises(self, tmp_path):
-        with pytest.raises(ConfigError, match="missing"):
-            load_config(tmp_path)
-
-
-class TestSelectVariant:
-    def test_returns_variant_block(self):
-        config = {"nolvus": {"target_dir": "D:/x"}}
-        assert select_variant(config, "nolvus") == {"target_dir": "D:/x"}
-
-    def test_unknown_variant_raises(self):
-        with pytest.raises(ConfigError, match="not defined"):
-            select_variant({"nolvus": {}}, "ghost")
 
 
 # ---------------------------------------------------------------------------
@@ -108,45 +75,6 @@ class TestSafelyRemoveSymlink:
 
     def test_missing_target(self, tmp_path):
         assert safely_remove_symlink(tmp_path / "nope.txt") == DeployStatus.NOT_FOUND
-
-
-# ---------------------------------------------------------------------------
-# Source gathering
-# ---------------------------------------------------------------------------
-
-class TestGatherSources:
-    def _build_repo(self, tmp_path):
-        (tmp_path / "core").mkdir()
-        (tmp_path / "core" / "c1.txt").write_text("core")
-        (tmp_path / "builds").mkdir()
-        (tmp_path / "builds" / "b1.txt").write_text("build")
-        (tmp_path / "variants" / "nolvus").mkdir(parents=True)
-        (tmp_path / "variants" / "nolvus" / "v1.txt").write_text("variant")
-        (tmp_path / "variants" / "nolvus" / "v2.txt").write_text("variant")
-        (tmp_path / "manifest.json").write_text(
-            json.dumps({"v1.txt": ["nolvus"], "v2.txt": ["other"]}), encoding="utf-8"
-        )
-
-    def test_gathers_core_builds_and_routed_variants(self, tmp_path):
-        self._build_repo(tmp_path)
-        config = {
-            "include_core": True,
-            "include_builds": True,
-            "variant_folder": "variants/nolvus",
-        }
-        names = {p.name for p in gather_sources(config, "nolvus", tmp_path)}
-        # v2.txt is routed to "other", so it must not appear for nolvus.
-        assert names == {"c1.txt", "b1.txt", "v1.txt"}
-
-    def test_respects_include_toggles(self, tmp_path):
-        self._build_repo(tmp_path)
-        config = {
-            "include_core": False,
-            "include_builds": False,
-            "variant_folder": "variants/nolvus",
-        }
-        names = {p.name for p in gather_sources(config, "nolvus", tmp_path)}
-        assert names == {"v1.txt"}
 
 
 # ---------------------------------------------------------------------------

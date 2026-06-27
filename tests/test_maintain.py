@@ -1,7 +1,7 @@
 """Unit tests for the repository maintenance/audit helpers."""
 import json
 
-import maintain_repo as maint
+from symlink_manager import maintain as maint
 
 
 # ---------------------------------------------------------------------------

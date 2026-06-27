@@ -1,8 +1,17 @@
 {
     "my_environment": {
+        "type": "skyrim_batch",
+        "source_root": "skyrim",
         "target_dir": "C:/Path/To/Target/Directory",
         "include_core": true,
         "include_builds": true,
         "variant_folder": "variants/my_environment"
+    },
+    "home": {
+        "type": "dotfiles",
+        "links": {
+            "dotfiles/bashrc": "~/.bashrc",
+            "dotfiles/nvim/init.lua": "~/.config/nvim/init.lua"
+        }
     }
 }

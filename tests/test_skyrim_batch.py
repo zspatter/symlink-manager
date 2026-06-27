@@ -1,9 +1,6 @@
-"""Unit tests for the pure formatting helpers in format_skyrim_batch.
-
-These cover the side-effect-free text transforms, which form the safety net the
-rest of the refactor leans on.
-"""
-import format_skyrim_batch as fmt
+"""Unit tests for the pure Skyrim-batch transforms and the formatter wrappers."""
+from symlink_manager.formatters import skyrim_batch as fmt
+from symlink_manager.formatters import IdentityFormatter, SkyrimBatchFormatter
 
 EMPTY_HEADER = "; " + "=" * (fmt.HEADER_WIDTH - 2)
 
@@ -115,75 +112,22 @@ class TestProcessLines:
         assert result == [expected_header, "player.additem X 1", EMPTY_HEADER]
 
     def test_disabled_command_is_recommented(self):
-        # A commented-out real command keeps its disabled marker rather than
-        # being mistaken for a section header.
         lines = ["; player.additem X 1"]
         result = fmt.process_lines(lines)
         assert result[1] == "; player.additem X 1"
 
 
 # ---------------------------------------------------------------------------
-# is_critical_error (error-severity routing)
+# Formatter wrappers
 # ---------------------------------------------------------------------------
 
-class TestIsCriticalError:
-    def test_no_active_variant_is_always_critical(self, tmp_path):
-        target = tmp_path / "variants" / "other" / "x.txt"
-        assert fmt.is_critical_error(target, tmp_path, None) is True
+class TestFormatters:
+    def test_identity_returns_input_unchanged(self):
+        text = "; nothing\nplayer.additem X 1\n"
+        assert IdentityFormatter().format(text) == text
 
-    def test_core_file_is_critical(self, tmp_path):
-        target = tmp_path / "core" / "x.txt"
-        assert fmt.is_critical_error(target, tmp_path, "nolvus") is True
-
-    def test_active_variant_file_is_critical(self, tmp_path):
-        target = tmp_path / "variants" / "nolvus" / "x.txt"
-        assert fmt.is_critical_error(target, tmp_path, "nolvus") is True
-
-    def test_inactive_variant_file_is_not_critical(self, tmp_path):
-        target = tmp_path / "variants" / "other" / "x.txt"
-        assert fmt.is_critical_error(target, tmp_path, "nolvus") is False
-
-
-# ---------------------------------------------------------------------------
-# FormatStatus + format_repository (integration over a temp repo)
-# ---------------------------------------------------------------------------
-
-class TestFormatStatus:
-    def test_expected_members(self):
-        names = {s.name for s in fmt.FormatStatus}
-        assert names == {"UNCHANGED", "MODIFIED", "ERROR", "IGNORED"}
-
-
-class TestFormatRepositoryIntegration:
-    def test_formats_messy_file_and_archives_a_copy(self, tmp_path, monkeypatch):
-        core = tmp_path / "core"
-        core.mkdir()
-        messy = core / "spells.txt"
-        messy.write_text(
-            "; Spells\nplayer.addspell FireBall 1 ; (0000000F) 'Fire Ball'\n",
-            encoding="utf-8",
-        )
-        monkeypatch.chdir(tmp_path)  # format_repository acts on Path.cwd()
-
-        assert fmt.format_repository() is True
-
-        result = messy.read_text(encoding="utf-8")
-        assert "Spells" in result          # header preserved
-        assert "Fire Ball" in result       # comment sanitized, FormID stripped
-        assert "(0000000F)" not in result
-
-        archived = list((tmp_path / "archive" / "core").glob("spells_*.txt"))
-        assert len(archived) == 1          # original mirrored into archive/
-
-    def test_clean_file_is_left_unchanged(self, tmp_path, monkeypatch):
-        core = tmp_path / "core"
-        core.mkdir()
-        target = core / "spells.txt"
-        target.write_text("; Spells\nplayer.addspell FireBall 1 ; Fire Ball\n", encoding="utf-8")
-        monkeypatch.chdir(tmp_path)
-
-        # First pass normalizes the file; second pass must be a no-op (idempotent).
-        fmt.format_repository()
-        normalized = target.read_text(encoding="utf-8")
-        fmt.format_repository()
-        assert target.read_text(encoding="utf-8") == normalized
+    def test_skyrim_formatter_matches_process_lines(self):
+        text = "player.additem Gold001 100 ; (0000000F) 'Gold'\n"
+        expected = "\n".join(fmt.process_lines(text.strip().splitlines())) + "\n"
+        assert SkyrimBatchFormatter().format(text) == expected
+        assert expected.endswith("\n")

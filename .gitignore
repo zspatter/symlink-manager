@@ -81,6 +81,12 @@ __pycache__/
 # Test tooling cache
 .pytest_cache/
 
+# Packaging build artifacts
+build/
+dist/
+*.egg-info/
+.eggs/
+
 # Ignore all personal configurations and manifests
 config.json
 manifest.json

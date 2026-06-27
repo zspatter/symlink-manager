@@ -1,10 +1,26 @@
-# Minimal project config. Currently only houses the pytest setup; this is the
-# natural anchor point for full packaging (entry points, metadata) down the line.
-[tool.pytest.ini_options]
-# The scripts import each other by top-level module name (e.g. `from deploy
-# import ...`), so the scripts/ dir must be importable during test collection.
-pythonpath = ["scripts"]
-testpaths = ["tests"]
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.pyright]
-extraPaths = ["scripts"]
+[project]
+name = "symlink-manager"
+version = "0.1.0"
+description = "Idempotent symlink deployment engine for atomic config, batch, and dotfiles."
+readme = "README.md"
+requires-python = ">=3.10"   # structural pattern matching (match statement)
+dependencies = []            # zero third-party runtime dependencies (stdlib only)
+
+[project.optional-dependencies]
+test = ["pytest>=7.0"]
+
+[project.scripts]
+symlink-build = "symlink_manager.cli:build_main"
+symlink-deploy = "symlink_manager.cli:deploy_main"
+symlink-format = "symlink_manager.cli:format_main"
+symlink-audit = "symlink_manager.cli:maintain_main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/symlink_manager"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

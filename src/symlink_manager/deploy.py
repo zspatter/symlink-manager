@@ -1,12 +1,17 @@
+"""The domain-agnostic symlink engine: create/remove links, tally, summarize.
+
+``execute_deployment`` resolves a profile's link specs (via its profile type) and
+drives them through the idempotent, real-file-protecting symlink primitives.
+"""
 import os
-import sys
-import argparse
-import json
 from pathlib import Path
 from enum import Enum, auto
 
+from .config import ConfigError, load_config, select_variant
+from .profiles import get_profile_type
+
 # ==============================================================================
-# Configuration & Constants
+# Constants
 # ==============================================================================
 
 class DeployStatus(Enum):
@@ -30,27 +35,6 @@ STATUS_LABELS = {
 }
 
 # ==============================================================================
-# Configuration Loading
-# ==============================================================================
-
-class ConfigError(Exception):
-    """Raised when config.json is missing or does not define the variant."""
-
-def load_config(repo_root):
-    """Loads and parses the master config.json from the repo root."""
-    config_path = repo_root / "config.json"
-    if not config_path.exists():
-        raise ConfigError(f"Master configuration file missing at {config_path.name}")
-    with open(config_path, 'r', encoding='utf-8') as f:
-        return json.load(f)
-
-def select_variant(master_config, variant_key):
-    """Returns the config block for a single variant, raising if undefined."""
-    if variant_key not in master_config:
-        raise ConfigError(f"Variant '{variant_key}' is not defined in config.json.")
-    return master_config[variant_key]
-
-# ==============================================================================
 # Helper Functions (Link Management)
 # ==============================================================================
 
@@ -69,10 +53,10 @@ def safely_create_symlink(source_path, target_path):
                     return DeployStatus.SKIPPED_EXISTING
             except OSError:
                 pass
-            target_path.unlink() 
+            target_path.unlink()
         else:
             return DeployStatus.ERROR_REAL_FILE
-            
+
     try:
         os.symlink(source_path, target_path)
         return DeployStatus.LINKED
@@ -88,7 +72,7 @@ def safely_remove_symlink(target_path):
     """Removes a symlink if it exists, aggressively protecting real files."""
     if not target_path.exists() and not target_path.is_symlink():
         return DeployStatus.NOT_FOUND
-        
+
     if target_path.is_symlink():
         try:
             target_path.unlink()
@@ -99,87 +83,58 @@ def safely_remove_symlink(target_path):
         return DeployStatus.ERROR_REAL_FILE
 
 # ==============================================================================
-# Atomic Pipeline Stages
+# Link Queue
 # ==============================================================================
 
-def gather_sources(config, variant_key, repo_root):
-    """Builds the list of files to deploy based on configuration and JSON routing."""
-    sources = []
-    
-    # 1. Universal Scripts (Broadcast)
-    if config.get("include_core") and (repo_root / "core").exists():
-        sources.extend((repo_root / "core").glob("*.txt"))
-            
-    if config.get("include_builds") and (repo_root / "builds").exists():
-        sources.extend((repo_root / "builds").glob("*.txt"))
-            
-    # 2. Variant Scripts (Routed via JSON)
-    manifest_path = repo_root / "manifest.json"
-    variant_dir = repo_root / config.get("variant_folder", "")
-    
-    if manifest_path.exists() and variant_dir.exists():
-        with open(manifest_path, 'r', encoding='utf-8') as f:
-            manifest_data = json.load(f)
-            
-        for script_name, active_variants in manifest_data.items():
-            if variant_key in active_variants:
-                sources.append(variant_dir / script_name)
-    else:
-        print("  [!] WARNING: manifest.json or variant directory missing. Skipping variant files.")
-        
-    return sources
-
-def process_deployment_queue(sources_to_deploy, target_dir, is_removal):
-    """Iterates through the queue and executes the file system operations."""
+def process_link_queue(link_specs, is_removal):
+    """Executes filesystem ops for a list of (source, target) link specs."""
     stats = {status: 0 for status in DeployStatus}
-    
-    for source_file in sources_to_deploy:
-        symlink_target = target_dir / source_file.name
-        
+
+    for source, target in link_specs:
         if is_removal:
-            status = safely_remove_symlink(symlink_target)
+            status = safely_remove_symlink(target)
             stats[status] += 1
-            
+
             match status:
                 case DeployStatus.REMOVED:
-                    print(f"  [-] Removed link: {symlink_target.name}")
+                    print(f"  [-] Removed link: {target.name}")
                 case DeployStatus.ERROR_REAL_FILE:
-                    print(f"  [!] Skipped (Real File Protected): {symlink_target.name}")
+                    print(f"  [!] Skipped (Real File Protected): {target.name}")
         else:
-            status = safely_create_symlink(source_file, symlink_target)
+            status = safely_create_symlink(source, target)
             stats[status] += 1
-            
+
             match status:
                 case DeployStatus.LINKED:
-                    print(f"  [+] Linked: {source_file.name}")
+                    print(f"  [+] Linked: {target.name}")
                 case DeployStatus.ERROR_REAL_FILE:
-                    print(f"  [!] ERROR: Real file blocking symlink at {symlink_target.name}")
+                    print(f"  [!] ERROR: Real file blocking symlink at {target.name}")
                 case DeployStatus.ERROR_MISSING_SOURCE:
-                    print(f"  [!] ERROR: Manifest routed {source_file.name}, but it is missing on disk!")
-                    
+                    print(f"  [!] ERROR: Source missing on disk: {source}")
+
     return stats
 
 def build_smart_summary(stats, is_removal):
     """Dynamically prints only the deployment statuses that were actually encountered."""
     mode_text = "TEARDOWN" if is_removal else "DEPLOYMENT"
     border = "-" * 50
-    
+
     summary_lines = [
         "",
         border,
         f" {mode_text} SUMMARY".center(50),
         border
     ]
-    
+
     active_stats = {status: count for status, count in stats.items() if count > 0}
-    
+
     if not active_stats:
         summary_lines.append("  No actions performed.")
     else:
         for status, count in active_stats.items():
             label = STATUS_LABELS.get(status, status.name)
             summary_lines.append(f" {label:<21}: {count}")
-            
+
     summary_lines.append(border)
     return "\n".join(summary_lines)
 
@@ -187,38 +142,21 @@ def build_smart_summary(stats, is_removal):
 # Execution Orchestration
 # ==============================================================================
 
-def execute_deployment(variant_key, is_removal=False):
+def execute_deployment(variant_key, is_removal=False, repo_root=None):
     """The master controller for a single deployment run."""
-    # The script will act on the directory from which it was called
-    repo_root = Path.cwd()
+    repo_root = repo_root or Path.cwd()
 
     try:
         master_config = load_config(repo_root)
-        config = select_variant(master_config, variant_key)
+        profile = select_variant(master_config, variant_key)
+        profile_type = get_profile_type(profile)
+        link_specs = profile_type.resolve_links(profile, variant_key, repo_root)
     except ConfigError as e:
         print(f"  [!] ERROR: {e}")
         return
 
-    target_dir = Path(config["target_dir"])
-    
-    if not target_dir.exists():
-        print(f"  [!] ERROR: Target directory does not exist: {target_dir}")
-        return
-        
-    print(f"  [*] Target Path: {target_dir}\n")
+    type_name = profile.get("type", "skyrim_batch")
+    print(f"  [*] Profile: {variant_key} ({type_name}) - {len(link_specs)} link(s)\n")
 
-    sources = gather_sources(config, variant_key, repo_root)
-    stats = process_deployment_queue(sources, target_dir, is_removal)
+    stats = process_link_queue(link_specs, is_removal)
     print(build_smart_summary(stats, is_removal))
-
-if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Deploy or remove Skyrim batch scripts via symlinks.")
-    parser.add_argument("variant", help="The name of the variant to deploy (e.g., lost_legacy_2)")
-    parser.add_argument("--remove", action="store_true", help="Remove the symlinks from the target directory instead of deploying.")
-    
-    args = parser.parse_args()
-    try:
-        execute_deployment(args.variant, is_removal=args.remove)
-    except SymlinkPermissionError as e:
-        print(f"\n[FATAL] {e}")
-        sys.exit(1)
