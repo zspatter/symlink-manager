@@ -1,5 +1,9 @@
 {
-    "example_script.txt": [
-        "example_variant_1"
+    "specific_script.txt": [
+        "my_environment",
+        "another_environment"
+    ],
+    "experimental_feature.txt": [
+        "my_environment"
     ]
 }
