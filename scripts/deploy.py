@@ -9,21 +9,6 @@ from enum import Enum, auto
 # Configuration & Constants
 # ==============================================================================
 
-DEPLOY_CONFIG = {
-    "lost_legacy_2": {
-        "target_dir": "D:/Modlists/Skyrim/Lost Legacy/Stock Game",
-        "include_core": True,
-        "include_builds": True,
-        "variant_folder": "variants/lost_legacy_2"
-    },
-    "nolvus": {
-        "target_dir": "D:/STOCK GAME",
-        "include_core": True,
-        "include_builds": True,
-        "variant_folder": "variants/nolvus"
-    }
-}
-
 class DeployStatus(Enum):
     LINKED = auto()
     SKIPPED_EXISTING = auto()
@@ -45,7 +30,28 @@ STATUS_LABELS = {
 }
 
 # ==============================================================================
-# 1. Helper Functions (Link Management)
+# Configuration Loading
+# ==============================================================================
+
+class ConfigError(Exception):
+    """Raised when config.json is missing or does not define the variant."""
+
+def load_config(repo_root):
+    """Loads and parses the master config.json from the repo root."""
+    config_path = repo_root / "config.json"
+    if not config_path.exists():
+        raise ConfigError(f"Master configuration file missing at {config_path.name}")
+    with open(config_path, 'r', encoding='utf-8') as f:
+        return json.load(f)
+
+def select_variant(master_config, variant_key):
+    """Returns the config block for a single variant, raising if undefined."""
+    if variant_key not in master_config:
+        raise ConfigError(f"Variant '{variant_key}' is not defined in config.json.")
+    return master_config[variant_key]
+
+# ==============================================================================
+# Helper Functions (Link Management)
 # ==============================================================================
 
 def safely_create_symlink(source_path, target_path):
@@ -180,21 +186,14 @@ def execute_deployment(variant_key, is_removal=False):
     """The master controller for a single deployment run."""
     # The script will act on the directory from which it was called
     repo_root = Path.cwd()
-    config_path = repo_root / "config.json"
-    
-    # Load dynamic configuration
-    if not config_path.exists():
-        print(f"  [!] ERROR: Master configuration file missing at {config_path.name}")
-        return
-        
-    with open(config_path, 'r', encoding='utf-8') as f:
-        master_config = json.load(f)
-        
-    if variant_key not in master_config:
-        print(f"  [!] ERROR: Variant '{variant_key}' not found in config.json.")
+
+    try:
+        master_config = load_config(repo_root)
+        config = select_variant(master_config, variant_key)
+    except ConfigError as e:
+        print(f"  [!] ERROR: {e}")
         return
 
-    config = master_config[variant_key]
     target_dir = Path(config["target_dir"])
     
     if not target_dir.exists():

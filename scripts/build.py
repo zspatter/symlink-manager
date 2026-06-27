@@ -1,34 +1,27 @@
 import argparse
 import sys
-import json
 from pathlib import Path
 
 # Import the atomic functions from your existing scripts
 from format_skyrim_batch import format_repository
 from maintain_repo import run_maintenance
-from deploy import execute_deployment
+from deploy import execute_deployment, load_config, select_variant, ConfigError
 
 def check_configuration(variant_key):
-    """Fail-Fast Configurations Check"""
+    """Fail-fast configuration check before the pipeline runs."""
     # The script will act on the directory from which it was called
     repo_root = Path.cwd()
-    config_path = repo_root / "config.json"
-    
-    if not config_path.exists():
-        print(f"\n[!] FATAL: Master configuration file missing at {config_path.name}")
-        sys.exit(1)
-        
-    with open(config_path, 'r', encoding='utf-8') as f:
-        master_config = json.load(f)
-        
-    if variant_key not in master_config:
-        print(f"\n[!] FATAL: Variant '{variant_key}' is not defined in config.json.")
+    try:
+        master_config = load_config(repo_root)
+        select_variant(master_config, variant_key)
+    except ConfigError as e:
+        print(f"\n[!] FATAL: {e}")
         sys.exit(1)
 
 def run_pipeline(variant_key, is_removal=False):
     """Executes the strict Format -> Maintain -> Deploy pipeline."""
     
-    # check_configuration(variant_key)
+    check_configuration(variant_key)
 
     print("\n" + "=" * 50)
     mode_title = "TEARDOWN" if is_removal else "DEPLOYMENT"
