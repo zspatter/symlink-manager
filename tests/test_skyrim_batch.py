@@ -116,6 +116,20 @@ class TestProcessLines:
         result = fmt.process_lines(lines)
         assert result[1] == "; player.additem X 1"
 
+    def test_bare_trailing_semicolon_produces_no_blank_comment(self):
+        # A line with a trailing ';' but no comment text must not keep a dangling "; ".
+        result = fmt.process_lines(["player.additem X 1 ;"])
+        assert result == [EMPTY_HEADER, "player.additem X 1", EMPTY_HEADER]
+
+    def test_formid_only_comment_is_dropped_entirely(self):
+        # A comment that cleans to nothing leaves the bare command, no "; ".
+        result = fmt.process_lines(["player.additem X 1 ; (0000000F)"])
+        assert result == [EMPTY_HEADER, "player.additem X 1", EMPTY_HEADER]
+
+    def test_disabled_command_with_empty_comment_is_clean(self):
+        result = fmt.process_lines(["; player.additem X 1 ;"])
+        assert result[1] == "; player.additem X 1"
+
 
 # ---------------------------------------------------------------------------
 # Formatter wrappers

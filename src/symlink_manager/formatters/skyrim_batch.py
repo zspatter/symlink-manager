@@ -64,8 +64,13 @@ def format_command_line(process_str, is_disabled):
         command = parts[0].strip()
         comment = clean_comment(parts[1])
 
-        command = command.ljust(TARGET_WIDTH) if len(command) < TARGET_WIDTH else command + " "
-        line_str = f"{command}; {comment}"
+        if comment:
+            command = command.ljust(TARGET_WIDTH) if len(command) < TARGET_WIDTH else command + " "
+            line_str = f"{command}; {comment}"
+        else:
+            # No real comment left (empty, or FormID/quote residue that cleaned
+            # to nothing): emit the bare command, never a dangling "; ".
+            line_str = command
         return f"; {line_str}" if is_disabled else line_str
 
     if is_disabled:
