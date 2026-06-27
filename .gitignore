@@ -1,0 +1,94 @@
+# =========================
+# Operating System Files
+# =========================
+# Windows image cache and directory customization
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+desktop.ini
+
+# Windows recycle bin and temporary files
+$RECYCLE.BIN/
+*.cab
+*.msi
+*.msm
+*.msp
+
+# Mac OS (Just in case you or a collaborator mounts the drive on a Mac)
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# =========================
+# Temporary & Log Files
+# =========================
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+/temp/
+/tmp/
+/logs/
+
+# =========================
+# Editor & IDE Configs
+# =========================
+# VS Code
+.vscode/
+*.code-workspace
+
+# JetBrains / IntelliJ (e.g., if using PyCharm or WebStorm for other parts)
+.idea/
+*.iws
+*.iml
+*.ipr
+out/
+
+# Notepad++ / Sublime Text / Vim
+*.sublime-workspace
+*.sublime-project
+*~
+.*.swp
+
+# =========================
+# Project-Specific / Symlink Testing
+# =========================
+# Ignore generated Windows shortcuts if you use them for testing
+*.lnk
+
+# Ignore compressed archives (to prevent accidentally committing backups like the one you created)
+*.zip
+*.rar
+*.7z
+*.tar.gz
+*.tgz
+
+# Ignore compiled executables (if you end up compiling your batch scripts via bat2exe)
+*.exe
+*.dll
+*.com
+
+# Python cache files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Ignore all personal configurations and manifests
+config.json
+manifest.json
+manifest.md
+
+# Ignore atomic script directories and archives
+/core/
+/variants/
+/builds/
+/archive/
+
+# Allow tracking of template configurations
+!config.example.json
+!manifest.example.json

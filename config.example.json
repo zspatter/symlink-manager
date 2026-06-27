@@ -1,0 +1,8 @@
+{
+    "example_variant_1": {
+        "target_dir": "C:/Path/To/Your/Modlist",
+        "include_core": true,
+        "include_builds": true,
+        "variant_folder": "variants/example_variant_1"
+    }
+}
