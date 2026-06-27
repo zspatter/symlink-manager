@@ -5,7 +5,13 @@ from pathlib import Path
 # Import the atomic functions from your existing scripts
 from format_skyrim_batch import format_repository
 from maintain_repo import run_maintenance
-from deploy import execute_deployment, load_config, select_variant, ConfigError
+from deploy import (
+    execute_deployment,
+    load_config,
+    select_variant,
+    ConfigError,
+    SymlinkPermissionError,
+)
 
 def check_configuration(variant_key):
     """Fail-fast configuration check before the pipeline runs."""
@@ -66,4 +72,8 @@ if __name__ == "__main__":
     parser.add_argument("--remove", action="store_true", help="Remove the symlinks from the target directory instead of deploying.")
     
     args = parser.parse_args()
-    run_pipeline(args.variant, is_removal=args.remove)
+    try:
+        run_pipeline(args.variant, is_removal=args.remove)
+    except SymlinkPermissionError as e:
+        print(f"\n[!] FATAL: {e}")
+        sys.exit(1)

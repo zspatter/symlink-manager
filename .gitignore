@@ -78,6 +78,9 @@ __pycache__/
 *.py[cod]
 *$py.class
 
+# Test tooling cache
+.pytest_cache/
+
 # Ignore all personal configurations and manifests
 config.json
 manifest.json

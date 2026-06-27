@@ -1,6 +1,7 @@
 import re
 import shutil
 from datetime import datetime
+from enum import Enum, auto
 from pathlib import Path
 
 # ==============================================================================
@@ -11,17 +12,23 @@ TARGET_WIDTH = 65
 HEADER_WIDTH = 100
 VERBOSE = False
 
+class FormatStatus(Enum):
+    UNCHANGED = auto()
+    MODIFIED = auto()
+    ERROR = auto()
+    IGNORED = auto()
+
 # ==============================================================================
 # Text Formatting & Sanitization Tools
 # ==============================================================================
 
 def is_skyrim_command(text_line):
     """Checks if a string begins with a standard, unambiguous Skyrim batch command."""
-    if not text_line: 
-        return False
-        
     words = text_line.split()
-    first_word = text_line.split()[0].lower()
+    if not words:
+        return False
+
+    first_word = words[0].lower()
 
     safe_commands = {
         "bat", "setav", "modav", "forceav", "addperk", "addspell", 
@@ -197,19 +204,19 @@ def process_single_file(file_path, base_dir, archive_root, timestamp):
         if original_text == new_text:
             if VERBOSE:
                 print(f"  [-] Skipped (Unchanged): {rel_path.name}")
-            return "unchanged", None
+            return FormatStatus.UNCHANGED, None
 
         print(f"\nProcessing: {rel_path}")
         archive_file(file_path, base_dir, archive_root, timestamp)
-        
+
         with open(file_path, 'w', encoding='utf-8') as f:
             f.write(new_text)
-            
+
         print(f"  [+] Formatted: {rel_path.name}")
-        return "modified", None
-        
+        return FormatStatus.MODIFIED, None
+
     except Exception as e:
-        return "error", str(e)
+        return FormatStatus.ERROR, str(e)
     
 def build_summary(total_files, stats):
     border = "-" * 50
@@ -220,16 +227,31 @@ def build_summary(total_files, stats):
         " FORMATTING SUMMARY".center(50),
         border,
         f" Total Files Scanned : {total_files}",
-        f" Skipped (Unchanged) : {stats['unchanged']}",
-        f" Modified & Archived : {stats['modified']}"
+        f" Skipped (Unchanged) : {stats[FormatStatus.UNCHANGED]}",
+        f" Modified & Archived : {stats[FormatStatus.MODIFIED]}"
     ]
-    
-    if stats["ignored"] > 0:
-        summary_lines.append(f" Ignored Errors      : {stats['ignored']}")
+
+    if stats[FormatStatus.IGNORED] > 0:
+        summary_lines.append(f" Ignored Errors      : {stats[FormatStatus.IGNORED]}")
         
     summary_lines.append(border)
     
     return "\n".join(summary_lines)
+
+def is_critical_error(file_path, base_dir, active_variant):
+    """A formatting error is non-critical only when it lands in an inactive variant.
+
+    Errors in core/builds files (or when no variant is active) always halt the
+    pipeline. Errors inside a *different* variant's folder are tolerated so a
+    deploy to one modlist isn't blocked by an unrelated variant's bad file.
+    """
+    if not active_variant or "variants" not in file_path.parts:
+        return True
+    try:
+        variant_folder = file_path.relative_to(base_dir / "variants").parts[0]
+    except ValueError:
+        return True
+    return variant_folder == active_variant
 
 def format_repository(active_variant=None):
     """Main execution loop. Returns True if successful, False if a critical error occurs."""
@@ -250,34 +272,24 @@ def format_repository(active_variant=None):
     
     print(f"  [*] Sweep initiated at {print_time}\n")
     
-    stats = {"unchanged": 0, "modified": 0, "error": 0, "ignored": 0}
+    stats = {status: 0 for status in FormatStatus}
 
     for file_path in files_to_process:
         status, err_msg = process_single_file(file_path, base_dir, archive_root, file_time)
-        
-        if status == "error":
-            is_critical = True 
-            if active_variant and "variants" in file_path.parts:
-                try:
-                    rel_var_path = file_path.relative_to(base_dir / "variants")
-                    file_variant_folder = rel_var_path.parts[0]
-                    if file_variant_folder != active_variant:
-                        is_critical = False
-                except ValueError:
-                    pass
-            
-            if is_critical:
+
+        if status is FormatStatus.ERROR:
+            if is_critical_error(file_path, base_dir, active_variant):
                 print(f"\n[!] FATAL ERROR: Formatting failed on critical file -> {file_path.name}")
                 print(f"    Reason: {err_msg}")
                 return False
-            else:
-                print(f"\n[~] WARNING: Ignored error in non-critical file -> {file_path.name}")
-                stats["ignored"] += 1
+
+            print(f"\n[~] WARNING: Ignored error in non-critical file -> {file_path.name}")
+            stats[FormatStatus.IGNORED] += 1
         else:
             stats[status] += 1
 
     print(build_summary(total_files, stats))
-    
+
     return True
 
 if __name__ == "__main__":

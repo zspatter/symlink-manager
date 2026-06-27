@@ -54,6 +54,9 @@ def select_variant(master_config, variant_key):
 # Helper Functions (Link Management)
 # ==============================================================================
 
+class SymlinkPermissionError(Exception):
+    """Raised when the OS denies symlink creation (Windows: needs Dev Mode/admin)."""
+
 def safely_create_symlink(source_path, target_path):
     """Creates a symlink with idempotency checks, protecting real files."""
     if not source_path.exists():
@@ -75,8 +78,10 @@ def safely_create_symlink(source_path, target_path):
         return DeployStatus.LINKED
     except OSError as e:
         if getattr(e, 'winerror', None) == 1314:
-            print("\n[FATAL] Windows requires Administrator privileges or 'Developer Mode' to create symlinks.")
-            sys.exit(1)
+            raise SymlinkPermissionError(
+                "Windows requires Administrator privileges or 'Developer Mode' "
+                "to create symlinks."
+            ) from e
         return DeployStatus.ERROR_OS
 
 def safely_remove_symlink(target_path):
@@ -212,4 +217,8 @@ if __name__ == "__main__":
     parser.add_argument("--remove", action="store_true", help="Remove the symlinks from the target directory instead of deploying.")
     
     args = parser.parse_args()
-    execute_deployment(args.variant, is_removal=args.remove)
+    try:
+        execute_deployment(args.variant, is_removal=args.remove)
+    except SymlinkPermissionError as e:
+        print(f"\n[FATAL] {e}")
+        sys.exit(1)
