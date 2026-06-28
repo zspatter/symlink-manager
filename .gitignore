@@ -80,6 +80,7 @@ __pycache__/
 
 # Test tooling cache
 .pytest_cache/
+.hypothesis/
 
 # Packaging build artifacts
 build/

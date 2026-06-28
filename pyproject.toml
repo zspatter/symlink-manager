@@ -13,7 +13,7 @@ requires-python = ">=3.10"   # structural pattern matching (match statement)
 dependencies = []            # zero third-party runtime dependencies (stdlib only)
 
 [project.optional-dependencies]
-test = ["pytest>=7.0"]
+test = ["pytest>=7.0", "hypothesis>=6.0"]
 
 [project.scripts]
 symlink-build = "symlink_manager.cli:build_main"
