@@ -1,5 +1,7 @@
 # Symlink Manager
 
+[![CI](https://github.com/zspatter/symlink-manager/actions/workflows/ci.yml/badge.svg)](https://github.com/zspatter/symlink-manager/actions/workflows/ci.yml)
+
 A Python-based, idempotent symlink deployment engine designed to manage environment configurations, batch scripts, and dotfiles. It operates by reading a centralized JSON configuration and mapping atomic files from a host repository to target directories.
 
 ## Architecture & Integration
