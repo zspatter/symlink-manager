@@ -14,14 +14,7 @@ from collections import defaultdict
 # ==============================================================================
 
 def load_manifest(manifest_path):
-    """Loads the JSON source of truth for variants, generating a template if missing."""
-    if not manifest_path.exists():
-        default_state = {"_example_variant_script.txt": ["lost_legacy_2"]}
-        with open(manifest_path, 'w', encoding='utf-8') as f:
-            json.dump(default_state, f, indent=4)
-        print(f"  [*] Generated template manifest at {manifest_path.name}")
-        return default_state
-
+    """Loads the JSON routing table of variant files."""
     with open(manifest_path, 'r', encoding='utf-8') as f:
         return json.load(f)
 
@@ -117,6 +110,10 @@ def run_maintenance(base_dir=None):
     manifest_md_path = base_dir / "manifest.md"
     variants_dir = base_dir / "variants"
     core_dir = base_dir / "core"
+
+    if not manifest_json_path.exists():
+        print(f"  [*] No manifest.json at {manifest_json_path} - nothing to audit.")
+        return
 
     # Load Data
     manifest_data = load_manifest(manifest_json_path)

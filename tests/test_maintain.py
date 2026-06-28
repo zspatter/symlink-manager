@@ -1,6 +1,8 @@
 """Unit tests for the repository maintenance/audit helpers."""
 import json
 
+import pytest
+
 from symlink_manager import maintain as maint
 
 
@@ -40,16 +42,36 @@ class TestScanVariants:
 # ---------------------------------------------------------------------------
 
 class TestLoadManifest:
-    def test_generates_template_when_missing(self, tmp_path):
-        manifest_path = tmp_path / "manifest.json"
-        data = maint.load_manifest(manifest_path)
-        assert manifest_path.exists()
-        assert "_example_variant_script.txt" in data
-
     def test_reads_existing_manifest(self, tmp_path):
         manifest_path = tmp_path / "manifest.json"
         manifest_path.write_text(json.dumps({"x.txt": ["nolvus"]}), encoding="utf-8")
         assert maint.load_manifest(manifest_path) == {"x.txt": ["nolvus"]}
+
+    def test_missing_manifest_raises(self, tmp_path):
+        # No silent template scaffolding - a missing manifest is a hard read error.
+        with pytest.raises(FileNotFoundError):
+            maint.load_manifest(tmp_path / "manifest.json")
+
+
+class TestRunMaintenance:
+    def test_missing_manifest_is_a_noop(self, tmp_path, capsys):
+        maint.run_maintenance(tmp_path)
+        out = capsys.readouterr().out
+        assert "nothing to audit" in out
+        # crucially, no stray files are scaffolded
+        assert not (tmp_path / "manifest.json").exists()
+        assert not (tmp_path / "manifest.md").exists()
+
+    def test_audits_and_writes_markdown(self, tmp_path, capsys):
+        (tmp_path / "manifest.json").write_text(json.dumps({"crafting.txt": ["nolvus"]}), encoding="utf-8")
+        (tmp_path / "variants" / "nolvus").mkdir(parents=True)
+        (tmp_path / "variants" / "nolvus" / "crafting.txt").write_text("x")
+        (tmp_path / "core").mkdir()
+
+        maint.run_maintenance(tmp_path)
+
+        assert (tmp_path / "manifest.md").exists()
+        assert "Health Check Passed" in capsys.readouterr().out
 
 
 # ---------------------------------------------------------------------------
