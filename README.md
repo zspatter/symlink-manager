@@ -6,7 +6,7 @@ A Python-based, idempotent symlink deployment engine designed to manage environm
 
 ## Architecture & Integration
 
-This tool is designed to be used as a **Git Submodule** inside a parent repository. The manager is completely blind to your personal files; it locates configurations and payload files relative to the parent repository root — the current directory by default, or an explicit `--repo-root`.
+This tool is designed to be used as a **Git Submodule** inside a parent repository. The manager is completely blind to your personal files; it locates configurations and payload files relative to the parent repository root - the current directory by default, or an explicit `--repo-root`.
 
 ### Expected Parent Directory Structure
 
@@ -35,7 +35,7 @@ To use this manager, create a `config.json` in the root of your parent repositor
 ### `config.json`
 Each entry is a **profile** keyed by name. Its `type` selects how files are formatted and how sources map to link targets. `type` defaults to `skyrim_batch` when omitted, so existing configs keep working.
 
-**`skyrim_batch`** — formats batch files, then broadcasts every gathered source flat into a single `target_dir`. The optional `source_root` (default `"."`) names the subdirectory its `core/`/`builds/`/`variants/`/`manifest.json` live under:
+**`skyrim_batch`** - formats batch files, then broadcasts every gathered source flat into a single `target_dir`. The optional `source_root` (default `"."`) names the subdirectory its `core/`/`builds/`/`variants/`/`manifest.json` live under:
 
 ```json
 {
@@ -50,7 +50,7 @@ Each entry is a **profile** keyed by name. Its `type` selects how files are form
 }
 ```
 
-**`dotfiles`** — no formatting; each repo-relative source links to its own explicit target (`~` and environment variables are expanded). A link value may be a bare target string, or an object/list conditioned on `platforms` (`windows`/`macos`/`linux`) and/or `hosts`, so one config serves multiple machines:
+**`dotfiles`** - no formatting; each repo-relative source links to its own explicit target (`~` and environment variables are expanded). A link value may be a bare target string, or an object/list conditioned on `platforms` (`windows`/`macos`/`linux`) and/or `hosts`, so one config serves multiple machines:
 
 ```json
 {
@@ -120,25 +120,30 @@ Install the engine once (editable), from the parent repository root:
 pip install -e symlink-manager
 ```
 
-Then run these commands from the root of your **parent repository** (or pass `--repo-root <path>`):
+Then run these commands from the root of your **parent repository** (or pass `--repo-root <path>`).
+
+Universal (any profile type):
 
 *   **Deploy Links:** `symlink-deploy <profile>`
 *   **Remove Links (Teardown):** `symlink-deploy <profile> --remove`
 *   **Adopt Existing Files:** `symlink-adopt <profile>` (move machine files into the repo, then link back)
 *   **Inspect Link State:** `symlink-status <profile>` (read-only; honors `--platform`/`--host`)
+
+Formatting profiles only (Skyrim today):
+
 *   **Format Only (no deploy):** `symlink-format <profile>`
-*   **Audit & Generate Docs:** `symlink-audit` (add `--source-root <dir>` for a siloed domain)
-*   **Full Pipeline (Format -> Audit -> Deploy):** `symlink-build <profile>`
+*   **Audit & Generate Docs:** `symlink-audit` (add `--source-root <dir>` for the siloed domain)
+*   **Full Pipeline (Format -> Audit -> Deploy):** `symlink-build <profile>` (equivalent to `deploy` for non-formatting profiles)
 
 Each is also a subcommand of `python -m symlink_manager` (e.g. `python -m symlink_manager deploy <profile>`) if you would rather not rely on the console scripts being on `PATH`.
 
-See **[USAGE.md](USAGE.md)** for the full command reference — every flag, examples, and common workflows.
+See **[USAGE.md](USAGE.md)** for the full command reference - every flag, examples, and common workflows.
 
-*Note: The engine aggressively protects real files. It will not overwrite existing non-symlink files in the target directory.* Use `symlink-deploy <profile> --backup` to rename a blocking real file aside (`<name>.<timestamp>.bak`) and link anyway — handy when onboarding a machine that already has the files.
+*Note: The engine aggressively protects real files. It will not overwrite existing non-symlink files in the target directory.* Use `symlink-deploy <profile> --backup` to rename a blocking real file aside (`<name>.<timestamp>.bak`) and link anyway - handy when onboarding a machine that already has the files.
 
 ## Development
 
-**Requirements:** Python 3.10+ (the deploy engine uses structural pattern matching). The engine has **no third-party runtime dependencies** — it runs on the standard library alone, so deployment needs nothing beyond a Python install.
+**Requirements:** Python 3.10+ (the deploy engine uses structural pattern matching). The engine has **no third-party runtime dependencies** - it runs on the standard library alone, so deployment needs nothing beyond a Python install.
 
 The engine ships with a `pytest` suite covering the formatters, link resolvers, the symlink engine, status/adopt, and config/audit logic. `pytest` is the only external dependency, and it is needed for tests only:
 
@@ -151,4 +156,4 @@ Symlink-creation tests self-skip when the host lacks the privilege (Windows with
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+MIT - see [LICENSE](LICENSE).

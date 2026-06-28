@@ -10,15 +10,19 @@ Every command runs from the root of your parent repository (or pass
 
 ## Concepts
 
-- **Profile** — a named entry in `config.json`. Its `type` (`skyrim_batch` or
+- **Profile** - a named entry in `config.json`. Its `type` (`skyrim_batch` or
   `dotfiles`) decides whether files are formatted and how sources map to targets.
-- **Host context** — conditional dotfile links are selected by the running
+- **Host context** - conditional dotfile links are selected by the running
   platform (normalized to `windows` / `macos` / `linux`) and hostname
   (`platform.node()`). `--platform` / `--host` override these for previews.
-- **Real-file protection** — the engine never overwrites a non-symlink file at a
+- **Real-file protection** - the engine never overwrites a non-symlink file at a
   target; it reports it as *protected* and skips it. `--backup` overrides this.
-- **Missing parents** — a target's parent directories are created automatically
+- **Missing parents** - a target's parent directories are created automatically
   on deploy (e.g. `~/.config/nvim/`).
+
+`deploy`, `status`, and `adopt` work on any profile. `format`, `audit`, and
+`build` only do anything for *formatting* profile types (`skyrim_batch` today):
+for other types they are a no-op, and `build` is equivalent to `deploy`.
 
 ---
 
@@ -94,7 +98,7 @@ symlink-adopt dotfiles             # move them into the repo and link back
 ## `symlink-format <profile>`
 
 Run only the formatting stage of a `skyrim_batch` profile (align commands,
-normalize headers/comments) in place — no deploy. Profiles whose type doesn't
+normalize headers/comments) in place - no deploy. Profiles whose type doesn't
 format are a no-op.
 
 | Flag | Effect |
@@ -109,6 +113,8 @@ symlink-format nolvus   # normalize the batch files without deploying
 
 Audit a Skyrim domain's `manifest.json` against the physical `variants/` tree
 (reporting ghost entries and undocumented files) and regenerate `manifest.md`.
+If no `manifest.json` exists at the source root, it reports nothing to do - it
+will not scaffold one.
 
 | Flag | Effect |
 | --- | --- |
