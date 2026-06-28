@@ -7,6 +7,8 @@ name = "symlink-manager"
 version = "0.1.0"
 description = "Idempotent symlink deployment engine for atomic config, batch, and dotfiles."
 readme = "README.md"
+license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.10"   # structural pattern matching (match statement)
 dependencies = []            # zero third-party runtime dependencies (stdlib only)
 

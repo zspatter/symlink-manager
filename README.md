@@ -14,7 +14,7 @@ Each profile's source files can be siloed under a domain directory via its `sour
 
 ```text
 parent-repo/
-├── config.json           # Your local configurations (Git-ignored here)
+├── config.json           # Your profiles (private to the parent repo)
 ├── skyrim/               # A skyrim_batch domain (source_root: "skyrim")
 │   ├── manifest.json     #   Routing logic for variant files
 │   ├── manifest.md       #   Auto-generated documentation
@@ -132,17 +132,23 @@ Then run these commands from the root of your **parent repository** (or pass `--
 
 Each is also a subcommand of `python -m symlink_manager` (e.g. `python -m symlink_manager deploy <profile>`) if you would rather not rely on the console scripts being on `PATH`.
 
+See **[USAGE.md](USAGE.md)** for the full command reference — every flag, examples, and common workflows.
+
 *Note: The engine aggressively protects real files. It will not overwrite existing non-symlink files in the target directory.* Use `symlink-deploy <profile> --backup` to rename a blocking real file aside (`<name>.<timestamp>.bak`) and link anyway — handy when onboarding a machine that already has the files.
 
 ## Development
 
 **Requirements:** Python 3.10+ (the deploy engine uses structural pattern matching). The engine has **no third-party runtime dependencies** — it runs on the standard library alone, so deployment needs nothing beyond a Python install.
 
-The engine ships with a `pytest` suite covering the formatters, link resolvers, config, and audit helpers. `pytest` is the only external dependency, and it is needed for tests only:
+The engine ships with a `pytest` suite covering the formatters, link resolvers, the symlink engine, status/adopt, and config/audit logic. `pytest` is the only external dependency, and it is needed for tests only:
 
 ```bash
 pip install -e ".[test]"   # editable install + test extra, from symlink-manager/
-pytest
+python -m pytest
 ```
 
 Symlink-creation tests self-skip when the host lacks the privilege (Windows without Developer Mode / admin); every other test runs unconditionally.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
