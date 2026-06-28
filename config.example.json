@@ -10,8 +10,12 @@
     "home": {
         "type": "dotfiles",
         "links": {
-            "dotfiles/bashrc": "~/.bashrc",
-            "dotfiles/nvim/init.lua": "~/.config/nvim/init.lua"
+            "dotfiles/git/gitconfig": "~/.gitconfig",
+            "dotfiles/profile/bashrc": { "target": "~/.bashrc", "platforms": ["linux", "macos"] },
+            "dotfiles/nvim/init.lua": [
+                { "target": "~/AppData/Local/nvim/init.lua", "platforms": "windows" },
+                { "target": "~/.config/nvim/init.lua", "platforms": ["linux", "macos"] }
+            ]
         }
     }
 }

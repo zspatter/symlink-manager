@@ -1,4 +1,5 @@
 """Unit tests for the symlink engine: link helpers, summary, error translation."""
+import json
 import os
 
 import pytest
@@ -8,6 +9,8 @@ from symlink_manager.deploy import (
     DeployStatus,
     safely_create_symlink,
     safely_remove_symlink,
+    process_link_queue,
+    execute_deployment,
     build_smart_summary,
 )
 
@@ -127,3 +130,72 @@ class TestSymlinkErrorTranslation:
 
         monkeypatch.setattr(deploy.os, "symlink", fake_symlink)
         assert safely_create_symlink(source, target) == DeployStatus.ERROR_OS
+
+
+# ---------------------------------------------------------------------------
+# Dry run (no filesystem mutation)
+# ---------------------------------------------------------------------------
+
+class TestDryRun:
+    def test_create_dry_run_reports_but_does_not_link(self, tmp_path):
+        source = tmp_path / "source.txt"
+        source.write_text("payload")
+        target = tmp_path / "link.txt"
+        assert safely_create_symlink(source, target, dry_run=True) == DeployStatus.LINKED
+        assert not target.exists() and not target.is_symlink()  # nothing created
+
+    def test_remove_dry_run_reports_but_keeps_symlink(self, tmp_path, symlink_support):
+        source = tmp_path / "source.txt"
+        source.write_text("payload")
+        target = tmp_path / "link.txt"
+        safely_create_symlink(source, target)
+        assert safely_remove_symlink(target, dry_run=True) == DeployStatus.REMOVED
+        assert target.is_symlink()  # still there
+
+    def test_process_link_queue_dry_run_previews_without_mutation(self, tmp_path):
+        fresh_src = tmp_path / "a.txt"; fresh_src.write_text("x")
+        fresh_tgt = tmp_path / "a_link.txt"
+        real_src = tmp_path / "b.txt"; real_src.write_text("x")
+        real_tgt = tmp_path / "b_link.txt"; real_tgt.write_text("real")
+        missing_src = tmp_path / "missing.txt"
+        missing_tgt = tmp_path / "m_link.txt"
+        specs = [(fresh_src, fresh_tgt), (real_src, real_tgt), (missing_src, missing_tgt)]
+
+        stats = process_link_queue(specs, is_removal=False, dry_run=True)
+
+        assert stats[DeployStatus.LINKED] == 1
+        assert stats[DeployStatus.ERROR_REAL_FILE] == 1
+        assert stats[DeployStatus.ERROR_MISSING_SOURCE] == 1
+        assert not fresh_tgt.exists()           # nothing created
+        assert real_tgt.read_text() == "real"   # untouched
+
+
+# ---------------------------------------------------------------------------
+# execute_deployment integration (config -> resolve -> queue -> summary)
+# ---------------------------------------------------------------------------
+
+class TestExecuteDeploymentIntegration:
+    def test_dry_run_filters_by_platform_override(self, tmp_path, capsys):
+        (tmp_path / "dotfiles").mkdir()
+        (tmp_path / "dotfiles" / "winprofile.ps1").write_text("x")
+        (tmp_path / "dotfiles" / "unixrc").write_text("x")
+        out = tmp_path / "out"
+        out.mkdir()
+        config = {"home": {"type": "dotfiles", "links": {
+            "dotfiles/winprofile.ps1": {"target": str(out / "winprofile.ps1"), "platforms": "windows"},
+            "dotfiles/unixrc": {"target": str(out / "unixrc"), "platforms": ["linux", "macos"]},
+        }}}
+        (tmp_path / "config.json").write_text(json.dumps(config), encoding="utf-8")
+
+        execute_deployment("home", repo_root=tmp_path, dry_run=True, platform_override="linux")
+
+        out_text = capsys.readouterr().out
+        assert "DRY RUN" in out_text
+        assert "unixrc" in out_text           # linux-applicable link previewed
+        assert "winprofile" not in out_text   # windows-only link filtered out
+        assert not (out / "unixrc").exists()   # dry-run wrote nothing
+
+    def test_unknown_variant_reports_error(self, tmp_path, capsys):
+        (tmp_path / "config.json").write_text(json.dumps({"home": {"type": "dotfiles", "links": {}}}), encoding="utf-8")
+        execute_deployment("ghost", repo_root=tmp_path)
+        assert "ERROR" in capsys.readouterr().out

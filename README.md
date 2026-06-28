@@ -48,19 +48,25 @@ Each entry is a **profile** keyed by name. Its `type` selects how files are form
 }
 ```
 
-**`dotfiles`** — no formatting; each repo-relative source links to its own explicit target (`~` and environment variables are expanded). Source paths are arbitrary, so a domain folder is just a path prefix:
+**`dotfiles`** — no formatting; each repo-relative source links to its own explicit target (`~` and environment variables are expanded). A link value may be a bare target string, or an object/list conditioned on `platforms` (`windows`/`macos`/`linux`) and/or `hosts`, so one config serves multiple machines:
 
 ```json
 {
     "home": {
         "type": "dotfiles",
         "links": {
-            "dotfiles/bashrc": "~/.bashrc",
-            "dotfiles/nvim/init.lua": "~/.config/nvim/init.lua"
+            "dotfiles/git/gitconfig": "~/.gitconfig",
+            "dotfiles/profile/bashrc": { "target": "~/.bashrc", "platforms": ["linux", "macos"] },
+            "dotfiles/nvim/init.lua": [
+                { "target": "~/AppData/Local/nvim/init.lua", "platforms": "windows" },
+                { "target": "~/.config/nvim/init.lua", "platforms": ["linux", "macos"] }
+            ]
         }
     }
 }
 ```
+
+Preview a host's selection with `symlink-deploy <profile> --dry-run [--platform <p>] [--host <h>]`.
 
 ### `manifest.json`
 Acts as the routing table for files in your `variants/` directory.

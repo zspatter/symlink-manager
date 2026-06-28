@@ -33,11 +33,20 @@ def deploy_main(argv=None):
     parser.add_argument("variant", help="The profile/variant to deploy (e.g. lost_legacy_2).")
     parser.add_argument("--remove", action="store_true",
                         help="Remove the symlinks instead of deploying.")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Preview what would change without touching the filesystem.")
+    parser.add_argument("--platform", default=None,
+                        help="Override the detected platform (windows/macos/linux) for link selection.")
+    parser.add_argument("--host", default=None,
+                        help="Override the detected hostname for link selection.")
     _add_repo_root(parser)
     args = parser.parse_args(argv)
 
     try:
-        execute_deployment(args.variant, is_removal=args.remove, repo_root=_repo_root(args))
+        execute_deployment(
+            args.variant, is_removal=args.remove, repo_root=_repo_root(args),
+            dry_run=args.dry_run, platform_override=args.platform, host_override=args.host,
+        )
     except SymlinkPermissionError as e:
         print(f"\n[FATAL] {e}")
         sys.exit(1)

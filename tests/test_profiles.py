@@ -1,5 +1,6 @@
 """Unit tests for profile types: source gathering, link resolvers, registry."""
 import json
+import os
 from pathlib import Path
 
 import pytest
@@ -12,7 +13,14 @@ from symlink_manager.profiles import (
     resolve_skyrim,
     resolve_dotfiles,
     get_profile_type,
+    HostContext,
+    current_host_context,
+    normalize_platform,
 )
+
+
+def ctx(platform="windows", host="PC1"):
+    return HostContext(platform, host)
 
 
 def _build_skyrim_repo(tmp_path):
@@ -119,6 +127,137 @@ class TestResolveDotfiles:
     def test_missing_links_raises(self, tmp_path):
         with pytest.raises(ConfigError, match="links"):
             resolve_dotfiles({}, "home", tmp_path)
+
+    def test_empty_links_is_noop(self, tmp_path):
+        assert resolve_dotfiles({"links": {}}, "home", tmp_path, ctx()) == []
+
+
+# ---------------------------------------------------------------------------
+# Conditional links (platform / host filtering)
+# ---------------------------------------------------------------------------
+
+class TestConditionalLinks:
+    def test_string_value_is_unconditional(self, tmp_path):
+        profile = {"links": {"dotfiles/git/.gitconfig": "~/.gitconfig"}}
+        assert len(resolve_dotfiles(profile, "home", tmp_path, ctx("linux"))) == 1
+
+    def test_platform_includes_and_excludes(self, tmp_path):
+        profile = {"links": {"dotfiles/profile/ps.ps1": {"target": "~/ps", "platforms": "windows"}}}
+        assert len(resolve_dotfiles(profile, "h", tmp_path, ctx("windows"))) == 1
+        assert resolve_dotfiles(profile, "h", tmp_path, ctx("linux")) == []
+
+    def test_platform_alias_matches_raw_sys_value(self, tmp_path):
+        # config says "windows"; a raw "win32" context normalizes to "windows".
+        profile = {"links": {"x": {"target": "~/x", "platforms": "windows"}}}
+        assert len(resolve_dotfiles(profile, "h", tmp_path, ctx(normalize_platform("win32")))) == 1
+
+    def test_host_filter(self, tmp_path):
+        profile = {"links": {"x": {"target": "~/x", "platforms": "macos", "hosts": ["work-mac"]}}}
+        assert len(resolve_dotfiles(profile, "h", tmp_path, ctx("macos", "work-mac"))) == 1
+        assert resolve_dotfiles(profile, "h", tmp_path, ctx("macos", "home-mac")) == []
+
+    def test_list_candidates_first_match_wins(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("USERPROFILE", str(tmp_path / "home"))
+        monkeypatch.setenv("HOME", str(tmp_path / "home"))
+        profile = {"links": {"dotfiles/vim/nvim/init.vim": [
+            {"target": "~/AppData/Local/nvim/init.vim", "platforms": "windows"},
+            {"target": "~/.config/nvim/init.vim", "platforms": ["linux", "macos"]},
+        ]}}
+        src = tmp_path / "dotfiles" / "vim" / "nvim" / "init.vim"
+        win = dict(resolve_dotfiles(profile, "h", tmp_path, ctx("windows")))
+        lin = dict(resolve_dotfiles(profile, "h", tmp_path, ctx("linux")))
+        assert "AppData" in str(win[src])
+        assert ".config" in str(lin[src])
+
+    def test_no_matching_candidate_is_skipped(self, tmp_path):
+        profile = {"links": {"x": [{"target": "~/x", "platforms": "macos"}]}}
+        assert resolve_dotfiles(profile, "h", tmp_path, ctx("windows")) == []
+
+    def test_missing_target_in_object_raises(self, tmp_path):
+        profile = {"links": {"x": {"platforms": "windows"}}}
+        with pytest.raises(ConfigError, match="target"):
+            resolve_dotfiles(profile, "h", tmp_path, ctx("windows"))
+
+    def test_raw_sys_platform_value_in_config_matches(self, tmp_path):
+        # config may use the raw sys.platform spelling ("win32") too.
+        profile = {"links": {"x": {"target": "~/x", "platforms": "win32"}}}
+        assert len(resolve_dotfiles(profile, "h", tmp_path, ctx("windows"))) == 1
+
+    def test_platform_not_in_multi_list_excluded(self, tmp_path):
+        profile = {"links": {"x": {"target": "~/x", "platforms": ["linux", "macos"]}}}
+        assert resolve_dotfiles(profile, "h", tmp_path, ctx("windows")) == []
+
+    def test_empty_platforms_list_matches_nothing(self, tmp_path):
+        profile = {"links": {"x": {"target": "~/x", "platforms": []}}}
+        assert resolve_dotfiles(profile, "h", tmp_path, ctx("windows")) == []
+
+    def test_multiple_hosts_any_matches(self, tmp_path):
+        profile = {"links": {"x": {"target": "~/x", "hosts": ["pc-a", "pc-b"]}}}
+        assert len(resolve_dotfiles(profile, "h", tmp_path, ctx("windows", "pc-b"))) == 1
+        assert resolve_dotfiles(profile, "h", tmp_path, ctx("windows", "pc-c")) == []
+
+    def test_platform_matches_but_host_excludes(self, tmp_path):
+        profile = {"links": {"x": {"target": "~/x", "platforms": "windows", "hosts": ["pc-a"]}}}
+        assert resolve_dotfiles(profile, "h", tmp_path, ctx("windows", "pc-b")) == []
+
+    def test_list_first_matching_candidate_wins(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("USERPROFILE", str(tmp_path))
+        monkeypatch.setenv("HOME", str(tmp_path))
+        # Both candidates apply to windows; the first listed must win.
+        profile = {"links": {"x": [
+            {"target": "~/first", "platforms": ["windows", "linux"]},
+            {"target": "~/second", "platforms": "windows"},
+        ]}}
+        specs = dict(resolve_dotfiles(profile, "h", tmp_path, ctx("windows")))
+        assert specs[tmp_path / "x"] == tmp_path / "first"
+
+    def test_env_var_expansion_in_target(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("MYCFG", str(tmp_path / "cfg"))
+        profile = {"links": {"x": "$MYCFG/app.conf"}}
+        specs = dict(resolve_dotfiles(profile, "h", tmp_path, ctx()))
+        assert specs[tmp_path / "x"] == tmp_path / "cfg" / "app.conf"
+
+    def test_empty_string_target_is_skipped_with_warning(self, tmp_path, capsys):
+        profile = {"links": {"dotfiles/wt/omp.json": ""}}
+        assert resolve_dotfiles(profile, "home", tmp_path, ctx()) == []
+        warning = capsys.readouterr().out
+        assert "dotfiles/wt/omp.json" in warning and "no target" in warning
+
+    def test_whitespace_target_is_skipped(self, tmp_path):
+        profile = {"links": {"x": "   "}}
+        assert resolve_dotfiles(profile, "home", tmp_path, ctx()) == []
+
+    def test_empty_target_does_not_drop_valid_siblings(self, tmp_path):
+        profile = {"links": {
+            "dotfiles/a": "~/a",
+            "dotfiles/unfilled": "",
+            "dotfiles/b": "~/b",
+        }}
+        names = {s.name for s, _t in resolve_dotfiles(profile, "home", tmp_path, ctx())}
+        assert names == {"a", "b"}
+
+
+# ---------------------------------------------------------------------------
+# Host context
+# ---------------------------------------------------------------------------
+
+class TestHostContext:
+    def test_normalize_aliases(self):
+        assert normalize_platform("win32") == "windows"
+        assert normalize_platform("Windows") == "windows"
+        assert normalize_platform("darwin") == "macos"
+        assert normalize_platform("osx") == "macos"
+        assert normalize_platform("linux") == "linux"
+        assert normalize_platform("freebsd") == "freebsd"  # unknown passes through
+
+    def test_overrides_win(self):
+        c = current_host_context(platform_override="macos", host_override="mb")
+        assert c.platform == "macos" and c.host == "mb"
+
+    def test_autodetect_is_sane(self):
+        c = current_host_context()
+        assert isinstance(c.platform, str) and c.platform
+        assert isinstance(c.host, str)
 
 
 # ---------------------------------------------------------------------------
