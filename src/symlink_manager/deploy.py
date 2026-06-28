@@ -44,8 +44,8 @@ class SymlinkPermissionError(Exception):
 def safely_create_symlink(source_path, target_path, dry_run=False):
     """Creates a symlink with idempotency checks, protecting real files.
 
-    When ``dry_run`` is set, returns the status that *would* result without
-    touching the filesystem.
+    Missing target parent directories are created. When ``dry_run`` is set,
+    returns the status that *would* result without touching the filesystem.
     """
     if not source_path.exists():
         return DeployStatus.ERROR_MISSING_SOURCE
@@ -67,6 +67,7 @@ def safely_create_symlink(source_path, target_path, dry_run=False):
         return DeployStatus.LINKED
 
     try:
+        target_path.parent.mkdir(parents=True, exist_ok=True)
         os.symlink(source_path, target_path)
         return DeployStatus.LINKED
     except OSError as e:
@@ -75,6 +76,7 @@ def safely_create_symlink(source_path, target_path, dry_run=False):
                 "Windows requires Administrator privileges or 'Developer Mode' "
                 "to create symlinks."
             ) from e
+        print(f"  [!] OS error: {e.strerror or e}: {target_path}")
         return DeployStatus.ERROR_OS
 
 def safely_remove_symlink(target_path, dry_run=False):

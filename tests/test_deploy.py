@@ -60,6 +60,23 @@ class TestSafelyCreateSymlink:
         safely_create_symlink(source, target)
         assert safely_create_symlink(source, target) == DeployStatus.SKIPPED_EXISTING
 
+    def test_creates_missing_target_parent_dirs(self, tmp_path, monkeypatch):
+        # Mock os.symlink so this runs without symlink privileges; we only care
+        # that the missing parent chain gets created before the link attempt.
+        monkeypatch.setattr(deploy.os, "symlink", lambda s, d: None)
+        source = tmp_path / "source.txt"
+        source.write_text("payload")
+        target = tmp_path / "nested" / "deep" / "link.txt"  # parents don't exist
+        assert safely_create_symlink(source, target) == DeployStatus.LINKED
+        assert target.parent.exists()
+
+    def test_dry_run_does_not_create_parent_dirs(self, tmp_path):
+        source = tmp_path / "source.txt"
+        source.write_text("payload")
+        target = tmp_path / "nested" / "deep" / "link.txt"
+        assert safely_create_symlink(source, target, dry_run=True) == DeployStatus.LINKED
+        assert not target.parent.exists()  # preview must not create anything
+
 
 class TestSafelyRemoveSymlink:
     def test_removes_symlink(self, tmp_path, symlink_support):
@@ -120,7 +137,7 @@ class TestSymlinkErrorTranslation:
         with pytest.raises(deploy.SymlinkPermissionError):
             safely_create_symlink(source, target)
 
-    def test_other_oserror_becomes_error_status(self, tmp_path, monkeypatch):
+    def test_other_oserror_becomes_error_status(self, tmp_path, monkeypatch, capsys):
         source = tmp_path / "source.txt"
         source.write_text("payload")
         target = tmp_path / "link.txt"
@@ -130,6 +147,7 @@ class TestSymlinkErrorTranslation:
 
         monkeypatch.setattr(deploy.os, "symlink", fake_symlink)
         assert safely_create_symlink(source, target) == DeployStatus.ERROR_OS
+        assert str(target) in capsys.readouterr().out  # failing path is surfaced
 
 
 # ---------------------------------------------------------------------------
