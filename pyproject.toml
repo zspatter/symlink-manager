@@ -16,6 +16,7 @@ test = ["pytest>=7.0"]
 [project.scripts]
 symlink-build = "symlink_manager.cli:build_main"
 symlink-deploy = "symlink_manager.cli:deploy_main"
+symlink-adopt = "symlink_manager.cli:adopt_main"
 symlink-format = "symlink_manager.cli:format_main"
 symlink-status = "symlink_manager.cli:status_main"
 symlink-audit = "symlink_manager.cli:maintain_main"

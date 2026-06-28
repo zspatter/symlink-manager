@@ -8,6 +8,7 @@ import argparse
 import sys
 from pathlib import Path
 
+from .adopt import run_adopt
 from .config import ConfigError, load_config, select_variant
 from .deploy import execute_deployment, SymlinkPermissionError
 from .formatting import format_tree
@@ -97,6 +98,28 @@ def format_main(argv=None):
     base = profile_base(profile, repo_root)
     if not format_tree(base, profile_type.formatter, active_variant=args.variant):
         print("\n[!] FATAL: Formatting halted due to critical errors.")
+        sys.exit(1)
+
+
+def adopt_main(argv=None):
+    parser = argparse.ArgumentParser(
+        prog="symlink-adopt",
+        description="Move existing machine files into the repo and link them back.")
+    parser.add_argument("variant", help="The profile/variant to adopt (e.g. dotfiles).")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Preview what would be adopted without touching the filesystem.")
+    parser.add_argument("--platform", default=None,
+                        help="Override the detected platform (windows/macos/linux) for link selection.")
+    parser.add_argument("--host", default=None,
+                        help="Override the detected hostname for link selection.")
+    _add_repo_root(parser)
+    args = parser.parse_args(argv)
+
+    try:
+        run_adopt(args.variant, repo_root=_repo_root(args), dry_run=args.dry_run,
+                  platform_override=args.platform, host_override=args.host)
+    except SymlinkPermissionError as e:
+        print(f"\n[FATAL] {e}")
         sys.exit(1)
 
 
