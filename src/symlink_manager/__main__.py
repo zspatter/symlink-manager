@@ -5,12 +5,13 @@ subcommand parses its own arguments.
 """
 import sys
 
-from .cli import build_main, deploy_main, format_main, maintain_main
+from .cli import build_main, deploy_main, format_main, maintain_main, status_main
 
 COMMANDS = {
     "build": build_main,
     "deploy": deploy_main,
     "format": format_main,
+    "status": status_main,
     "audit": maintain_main,
 }
 

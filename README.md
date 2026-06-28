@@ -122,6 +122,7 @@ Then run these commands from the root of your **parent repository** (or pass `--
 
 *   **Deploy Links:** `symlink-deploy <profile>`
 *   **Remove Links (Teardown):** `symlink-deploy <profile> --remove`
+*   **Inspect Link State:** `symlink-status <profile>` (read-only; honors `--platform`/`--host`)
 *   **Format Only (no deploy):** `symlink-format <profile>`
 *   **Audit & Generate Docs:** `symlink-audit` (add `--source-root <dir>` for a siloed domain)
 *   **Full Pipeline (Format -> Audit -> Deploy):** `symlink-build <profile>`

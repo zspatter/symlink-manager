@@ -14,6 +14,7 @@ from .formatting import format_tree
 from .maintain import run_maintenance
 from .pipeline import run_pipeline
 from .profiles import get_profile_type, profile_base
+from .status import run_status
 
 
 def _repo_root(args):
@@ -94,6 +95,21 @@ def format_main(argv=None):
     if not format_tree(base, profile_type.formatter, active_variant=args.variant):
         print("\n[!] FATAL: Formatting halted due to critical errors.")
         sys.exit(1)
+
+
+def status_main(argv=None):
+    parser = argparse.ArgumentParser(
+        prog="symlink-status", description="Report the current state of a profile's links (read-only).")
+    parser.add_argument("variant", help="The profile/variant to inspect (e.g. dotfiles).")
+    parser.add_argument("--platform", default=None,
+                        help="Override the detected platform (windows/macos/linux) for link selection.")
+    parser.add_argument("--host", default=None,
+                        help="Override the detected hostname for link selection.")
+    _add_repo_root(parser)
+    args = parser.parse_args(argv)
+
+    run_status(args.variant, repo_root=_repo_root(args),
+               platform_override=args.platform, host_override=args.host)
 
 
 def maintain_main(argv=None):
