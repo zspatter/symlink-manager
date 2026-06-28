@@ -36,6 +36,8 @@ def deploy_main(argv=None):
                         help="Remove the symlinks instead of deploying.")
     parser.add_argument("--dry-run", action="store_true",
                         help="Preview what would change without touching the filesystem.")
+    parser.add_argument("--backup", action="store_true",
+                        help="Rename a blocking real file aside (<name>.<timestamp>.bak) instead of skipping it.")
     parser.add_argument("--platform", default=None,
                         help="Override the detected platform (windows/macos/linux) for link selection.")
     parser.add_argument("--host", default=None,
@@ -47,6 +49,7 @@ def deploy_main(argv=None):
         execute_deployment(
             args.variant, is_removal=args.remove, repo_root=_repo_root(args),
             dry_run=args.dry_run, platform_override=args.platform, host_override=args.host,
+            backup=args.backup,
         )
     except SymlinkPermissionError as e:
         print(f"\n[FATAL] {e}")

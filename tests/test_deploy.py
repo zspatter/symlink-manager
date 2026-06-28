@@ -46,6 +46,28 @@ class TestSafelyCreateSymlink:
         assert safely_create_symlink(source, target) == DeployStatus.ERROR_REAL_FILE
         assert target.read_text() == "i am a real file"  # untouched
 
+    def test_backup_moves_real_file_then_links(self, tmp_path, monkeypatch):
+        # Mock os.symlink so this runs without symlink privileges; we verify the
+        # blocking file is renamed aside before the link attempt.
+        monkeypatch.setattr(deploy.os, "symlink", lambda s, d: None)
+        source = tmp_path / "source.txt"
+        source.write_text("new")
+        target = tmp_path / "link.txt"
+        target.write_text("old")
+        assert safely_create_symlink(source, target, backup=True) == DeployStatus.BACKED_UP
+        backups = list(tmp_path.glob("link.txt.*.bak"))
+        assert len(backups) == 1
+        assert backups[0].read_text() == "old"  # original preserved
+
+    def test_backup_dry_run_does_not_move(self, tmp_path):
+        source = tmp_path / "source.txt"
+        source.write_text("new")
+        target = tmp_path / "link.txt"
+        target.write_text("old")
+        assert safely_create_symlink(source, target, dry_run=True, backup=True) == DeployStatus.BACKED_UP
+        assert target.read_text() == "old"          # untouched
+        assert not list(tmp_path.glob("*.bak"))     # nothing written
+
     def test_creates_new_link(self, tmp_path, symlink_support):
         source = tmp_path / "source.txt"
         source.write_text("payload")

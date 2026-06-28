@@ -4,6 +4,7 @@
 drives them through the idempotent, real-file-protecting symlink primitives.
 """
 import os
+from datetime import datetime
 from pathlib import Path
 from enum import Enum, auto
 
@@ -16,6 +17,7 @@ from .profiles import get_profile_type, current_host_context
 
 class DeployStatus(Enum):
     LINKED = auto()
+    BACKED_UP = auto()
     SKIPPED_EXISTING = auto()
     REMOVED = auto()
     NOT_FOUND = auto()
@@ -26,6 +28,7 @@ class DeployStatus(Enum):
 # Dictionary to map Enums to clean console output labels
 STATUS_LABELS = {
     DeployStatus.LINKED: "New Links",
+    DeployStatus.BACKED_UP: "Backed Up + Linked",
     DeployStatus.SKIPPED_EXISTING: "Existent/Skipped",
     DeployStatus.REMOVED: "Links Removed",
     DeployStatus.NOT_FOUND: "Not Found",
@@ -41,15 +44,18 @@ STATUS_LABELS = {
 class SymlinkPermissionError(Exception):
     """Raised when the OS denies symlink creation (Windows: needs Dev Mode/admin)."""
 
-def safely_create_symlink(source_path, target_path, dry_run=False):
+def safely_create_symlink(source_path, target_path, dry_run=False, backup=False):
     """Creates a symlink with idempotency checks, protecting real files.
 
-    Missing target parent directories are created. When ``dry_run`` is set,
-    returns the status that *would* result without touching the filesystem.
+    Missing target parent directories are created. A real file at the target is
+    protected (ERROR_REAL_FILE) unless ``backup`` is set, in which case it is
+    renamed aside (``<name>.<timestamp>.bak``) before linking. When ``dry_run``
+    is set, returns the status that *would* result without touching the filesystem.
     """
     if not source_path.exists():
         return DeployStatus.ERROR_MISSING_SOURCE
 
+    backed_up = False
     if target_path.exists() or target_path.is_symlink():
         if target_path.is_symlink():
             try:
@@ -60,6 +66,17 @@ def safely_create_symlink(source_path, target_path, dry_run=False):
             if dry_run:
                 return DeployStatus.LINKED  # would re-point
             target_path.unlink()
+        elif backup:
+            if dry_run:
+                return DeployStatus.BACKED_UP  # would back up + link
+            backup_path = target_path.with_name(
+                f"{target_path.name}.{datetime.now():%Y-%m-%d_%H.%M.%S}.bak")
+            try:
+                target_path.rename(backup_path)
+            except OSError as e:
+                print(f"  [!] OS error: {e.strerror or e}: backing up {target_path}")
+                return DeployStatus.ERROR_OS
+            backed_up = True
         else:
             return DeployStatus.ERROR_REAL_FILE
 
@@ -69,7 +86,7 @@ def safely_create_symlink(source_path, target_path, dry_run=False):
     try:
         target_path.parent.mkdir(parents=True, exist_ok=True)
         os.symlink(source_path, target_path)
-        return DeployStatus.LINKED
+        return DeployStatus.BACKED_UP if backed_up else DeployStatus.LINKED
     except OSError as e:
         if getattr(e, 'winerror', None) == 1314:
             raise SymlinkPermissionError(
@@ -99,7 +116,7 @@ def safely_remove_symlink(target_path, dry_run=False):
 # Link Queue
 # ==============================================================================
 
-def process_link_queue(link_specs, is_removal, dry_run=False):
+def process_link_queue(link_specs, is_removal, dry_run=False, backup=False):
     """Executes (or, when dry_run, previews) filesystem ops for the link specs."""
     stats = {status: 0 for status in DeployStatus}
     verb = "would " if dry_run else ""
@@ -115,14 +132,16 @@ def process_link_queue(link_specs, is_removal, dry_run=False):
                 case DeployStatus.ERROR_REAL_FILE:
                     print(f"  [!] {verb}skip (real file protected): {target}")
         else:
-            status = safely_create_symlink(source, target, dry_run=dry_run)
+            status = safely_create_symlink(source, target, dry_run=dry_run, backup=backup)
             stats[status] += 1
 
             match status:
                 case DeployStatus.LINKED:
                     print(f"  [+] {verb}link: {target}")
+                case DeployStatus.BACKED_UP:
+                    print(f"  [+] {verb}link (backed up existing file): {target}")
                 case DeployStatus.ERROR_REAL_FILE:
-                    print(f"  [!] {verb}error: real file blocking: {target}")
+                    print(f"  [!] {verb}error: real file blocking (use --backup): {target}")
                 case DeployStatus.ERROR_MISSING_SOURCE:
                     print(f"  [!] {verb}error: source missing: {source}")
 
@@ -157,7 +176,7 @@ def build_smart_summary(stats, is_removal, dry_run=False):
 # ==============================================================================
 
 def execute_deployment(variant_key, is_removal=False, repo_root=None,
-                       dry_run=False, platform_override=None, host_override=None):
+                       dry_run=False, platform_override=None, host_override=None, backup=False):
     """The master controller for a single deployment run."""
     repo_root = repo_root or Path.cwd()
     context = current_host_context(platform_override, host_override)
@@ -181,5 +200,5 @@ def execute_deployment(variant_key, is_removal=False, repo_root=None,
     print(f"  [*] Profile: {variant_key} ({type_name}) - {len(link_specs)} link(s) "
           f"[{context.platform}/{context.host}]\n")
 
-    stats = process_link_queue(link_specs, is_removal, dry_run=dry_run)
+    stats = process_link_queue(link_specs, is_removal, dry_run=dry_run, backup=backup)
     print(build_smart_summary(stats, is_removal, dry_run=dry_run))

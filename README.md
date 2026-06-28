@@ -129,7 +129,7 @@ Then run these commands from the root of your **parent repository** (or pass `--
 
 Each is also a subcommand of `python -m symlink_manager` (e.g. `python -m symlink_manager deploy <profile>`) if you would rather not rely on the console scripts being on `PATH`.
 
-*Note: The engine aggressively protects real files. It will not overwrite existing non-symlink files in the target directory.*
+*Note: The engine aggressively protects real files. It will not overwrite existing non-symlink files in the target directory.* Use `symlink-deploy <profile> --backup` to rename a blocking real file aside (`<name>.<timestamp>.bak`) and link anyway — handy when onboarding a machine that already has the files.
 
 ## Development
 
