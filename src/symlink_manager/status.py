@@ -38,6 +38,15 @@ STATE_GLYPHS = {
     LinkState.MISSING_SOURCE: "[!!]",
 }
 
+# States that signal something is wrong on disk (as opposed to OK or the benign
+# "not deployed yet"). Their presence makes status report failure for CI gating.
+PROBLEM_STATES = frozenset({
+    LinkState.BROKEN,
+    LinkState.WRONG_TARGET,
+    LinkState.BLOCKED,
+    LinkState.MISSING_SOURCE,
+})
+
 
 def link_status(source_path, target_path):
     """Returns the current LinkState of a (source, target) pair. Read-only."""
@@ -81,7 +90,12 @@ def _summary(stats):
 
 
 def run_status(variant_key, repo_root=None, platform_override=None, host_override=None):
-    """Reports the current link state for a profile (read-only)."""
+    """Reports the current link state for a profile (read-only).
+
+    Returns a process-style exit code: 0 when every link is OK or simply not yet
+    deployed, 1 if configuration failed, any link is in a problem state (see
+    ``PROBLEM_STATES``), or sources collide on a target.
+    """
     repo_root = repo_root or Path.cwd()
     context = current_host_context(platform_override, host_override)
 
@@ -92,7 +106,7 @@ def run_status(variant_key, repo_root=None, platform_override=None, host_overrid
         link_specs = profile_type.resolve_links(profile, variant_key, repo_root, context)
     except ConfigError as e:
         print(f"  [!] ERROR: {e}")
-        return
+        return 1
 
     type_name = profile.get("type", "skyrim_batch")
     print(f"  [*] Status: {variant_key} ({type_name}) - {len(link_specs)} link(s) "
@@ -112,3 +126,5 @@ def run_status(variant_key, repo_root=None, platform_override=None, host_overrid
             print(f"  [!] CONFLICT: multiple sources link to {target} ({names})")
 
     print(_summary(stats))
+    problems = any(stats[state] for state in PROBLEM_STATES) or bool(conflicts)
+    return 1 if problems else 0

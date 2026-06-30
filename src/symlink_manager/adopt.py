@@ -66,7 +66,11 @@ def _summary(stats):
 
 
 def run_adopt(variant_key, repo_root=None, dry_run=False, platform_override=None, host_override=None):
-    """Adopts every adoptable link in a profile (moves machine files into the repo)."""
+    """Adopts every adoptable link in a profile (moves machine files into the repo).
+
+    Returns a process-style exit code: 0 on success, 1 if configuration failed or
+    any link could not be adopted.
+    """
     repo_root = repo_root or Path.cwd()
     context = current_host_context(platform_override, host_override)
 
@@ -77,7 +81,7 @@ def run_adopt(variant_key, repo_root=None, dry_run=False, platform_override=None
         link_specs = profile_type.resolve_links(profile, variant_key, repo_root, context)
     except ConfigError as e:
         print(f"  [!] ERROR: {e}")
-        return
+        return 1
 
     if dry_run:
         print("  [*] DRY RUN - no filesystem changes will be made.")
@@ -96,3 +100,4 @@ def run_adopt(variant_key, repo_root=None, dry_run=False, platform_override=None
             print(f"  [!] error adopting: {target}")
 
     print(_summary(stats))
+    return 1 if stats[AdoptStatus.ERROR] else 0

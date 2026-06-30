@@ -65,8 +65,11 @@ def run_pipeline(variant_key, is_removal=False, repo_root=None):
     # STAGE 3: Deploy to Target
     # ---------------------------------------------------------
     print(f"\n>>> STAGE 3: EXECUTING TARGET ACTIONS -> {variant_key.upper()}")
-    execute_deployment(variant_key, is_removal=is_removal, repo_root=repo_root)
+    code = execute_deployment(variant_key, is_removal=is_removal, repo_root=repo_root)
 
     print("\n" + "=" * 50)
     print(f" {mode_title} PIPELINE COMPLETE".center(50))
     print("=" * 50 + "\n")
+
+    if code:
+        sys.exit(code)

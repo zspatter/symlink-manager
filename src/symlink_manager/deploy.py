@@ -37,6 +37,18 @@ STATUS_LABELS = {
     DeployStatus.ERROR_OS: "OS Errors"
 }
 
+# Statuses that mean a link spec did not end up in its intended state. Their
+# presence makes a run report failure (non-zero exit) so scripts/CI can gate on it.
+ERROR_STATUSES = frozenset({
+    DeployStatus.ERROR_REAL_FILE,
+    DeployStatus.ERROR_MISSING_SOURCE,
+    DeployStatus.ERROR_OS,
+})
+
+def error_count(stats):
+    """Tallies the link specs that failed (see ``ERROR_STATUSES``)."""
+    return sum(stats.get(status, 0) for status in ERROR_STATUSES)
+
 # ==============================================================================
 # Helper Functions (Link Management)
 # ==============================================================================
@@ -85,7 +97,9 @@ def safely_create_symlink(source_path, target_path, dry_run=False, backup=False)
 
     try:
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        os.symlink(source_path, target_path)
+        # target_is_directory matters on Windows: a directory source linked with
+        # the default (False) yields a broken file-symlink. No-op on POSIX.
+        os.symlink(source_path, target_path, target_is_directory=source_path.is_dir())
         return DeployStatus.BACKED_UP if backed_up else DeployStatus.LINKED
     except OSError as e:
         if getattr(e, 'winerror', None) == 1314:
@@ -177,7 +191,11 @@ def build_smart_summary(stats, is_removal, dry_run=False):
 
 def execute_deployment(variant_key, is_removal=False, repo_root=None,
                        dry_run=False, platform_override=None, host_override=None, backup=False):
-    """The master controller for a single deployment run."""
+    """The master controller for a single deployment run.
+
+    Returns a process-style exit code: 0 on success, 1 if configuration failed or
+    any link spec ended in an error state (see ``ERROR_STATUSES``).
+    """
     repo_root = repo_root or Path.cwd()
     context = current_host_context(platform_override, host_override)
 
@@ -188,7 +206,7 @@ def execute_deployment(variant_key, is_removal=False, repo_root=None,
         link_specs = profile_type.resolve_links(profile, variant_key, repo_root, context)
     except ConfigError as e:
         print(f"  [!] ERROR: {e}")
-        return
+        return 1
 
     if dry_run:
         print("  [*] DRY RUN - no filesystem changes will be made.")
@@ -202,3 +220,4 @@ def execute_deployment(variant_key, is_removal=False, repo_root=None,
 
     stats = process_link_queue(link_specs, is_removal, dry_run=dry_run, backup=backup)
     print(build_smart_summary(stats, is_removal, dry_run=dry_run))
+    return 1 if error_count(stats) else 0

@@ -47,7 +47,7 @@ def deploy_main(argv=None):
     args = parser.parse_args(argv)
 
     try:
-        execute_deployment(
+        code = execute_deployment(
             args.variant, is_removal=args.remove, repo_root=_repo_root(args),
             dry_run=args.dry_run, platform_override=args.platform, host_override=args.host,
             backup=args.backup,
@@ -55,6 +55,8 @@ def deploy_main(argv=None):
     except SymlinkPermissionError as e:
         print(f"\n[FATAL] {e}")
         sys.exit(1)
+    if code:
+        sys.exit(code)
 
 
 def build_main(argv=None):
@@ -116,11 +118,13 @@ def adopt_main(argv=None):
     args = parser.parse_args(argv)
 
     try:
-        run_adopt(args.variant, repo_root=_repo_root(args), dry_run=args.dry_run,
-                  platform_override=args.platform, host_override=args.host)
+        code = run_adopt(args.variant, repo_root=_repo_root(args), dry_run=args.dry_run,
+                         platform_override=args.platform, host_override=args.host)
     except SymlinkPermissionError as e:
         print(f"\n[FATAL] {e}")
         sys.exit(1)
+    if code:
+        sys.exit(code)
 
 
 def status_main(argv=None):
@@ -134,8 +138,10 @@ def status_main(argv=None):
     _add_repo_root(parser)
     args = parser.parse_args(argv)
 
-    run_status(args.variant, repo_root=_repo_root(args),
-               platform_override=args.platform, host_override=args.host)
+    code = run_status(args.variant, repo_root=_repo_root(args),
+                      platform_override=args.platform, host_override=args.host)
+    if code:
+        sys.exit(code)
 
 
 def maintain_main(argv=None):

@@ -44,7 +44,7 @@ class TestAdoptLink:
 
     def test_adopts_real_file_into_repo(self, tmp_path, monkeypatch):
         # Mock os.symlink so the link-back step runs without symlink privileges.
-        monkeypatch.setattr(deploy.os, "symlink", lambda s, d: None)
+        monkeypatch.setattr(deploy.os, "symlink", lambda s, d, **kw: None)
         source = tmp_path / "dotfiles" / "rc"          # not in repo yet
         target = tmp_path / "out" / "rc"
         target.parent.mkdir(parents=True)
@@ -70,7 +70,7 @@ class TestAdoptLink:
 
 class TestRunAdopt:
     def test_captures_missing_source(self, tmp_path, monkeypatch, capsys):
-        monkeypatch.setattr(deploy.os, "symlink", lambda s, d: None)
+        monkeypatch.setattr(deploy.os, "symlink", lambda s, d, **kw: None)
         (tmp_path / "out").mkdir()
         (tmp_path / "out" / "rc").write_text("machine")
         config = {"home": {"type": "dotfiles", "links": {

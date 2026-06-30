@@ -49,7 +49,7 @@ class TestSafelyCreateSymlink:
     def test_backup_moves_real_file_then_links(self, tmp_path, monkeypatch):
         # Mock os.symlink so this runs without symlink privileges; we verify the
         # blocking file is renamed aside before the link attempt.
-        monkeypatch.setattr(deploy.os, "symlink", lambda s, d: None)
+        monkeypatch.setattr(deploy.os, "symlink", lambda s, d, **kw: None)
         source = tmp_path / "source.txt"
         source.write_text("new")
         target = tmp_path / "link.txt"
@@ -85,7 +85,7 @@ class TestSafelyCreateSymlink:
     def test_creates_missing_target_parent_dirs(self, tmp_path, monkeypatch):
         # Mock os.symlink so this runs without symlink privileges; we only care
         # that the missing parent chain gets created before the link attempt.
-        monkeypatch.setattr(deploy.os, "symlink", lambda s, d: None)
+        monkeypatch.setattr(deploy.os, "symlink", lambda s, d, **kw: None)
         source = tmp_path / "source.txt"
         source.write_text("payload")
         target = tmp_path / "nested" / "deep" / "link.txt"  # parents don't exist
@@ -98,6 +98,28 @@ class TestSafelyCreateSymlink:
         target = tmp_path / "nested" / "deep" / "link.txt"
         assert safely_create_symlink(source, target, dry_run=True) == DeployStatus.LINKED
         assert not target.parent.exists()  # preview must not create anything
+
+    def test_directory_source_links_as_directory(self, tmp_path, monkeypatch):
+        # On Windows a directory source needs target_is_directory=True or the link
+        # is a broken file-symlink; verify we pass it based on the source type.
+        captured = {}
+        monkeypatch.setattr(deploy.os, "symlink",
+                            lambda s, d, **kw: captured.update(kw))
+        source = tmp_path / "confdir"
+        source.mkdir()
+        target = tmp_path / "linkdir"
+        assert safely_create_symlink(source, target) == DeployStatus.LINKED
+        assert captured.get("target_is_directory") is True
+
+    def test_file_source_links_as_file(self, tmp_path, monkeypatch):
+        captured = {}
+        monkeypatch.setattr(deploy.os, "symlink",
+                            lambda s, d, **kw: captured.update(kw))
+        source = tmp_path / "file.txt"
+        source.write_text("x")
+        target = tmp_path / "link.txt"
+        assert safely_create_symlink(source, target) == DeployStatus.LINKED
+        assert captured.get("target_is_directory") is False
 
 
 class TestSafelyRemoveSymlink:
@@ -150,7 +172,7 @@ class TestSymlinkErrorTranslation:
         source.write_text("payload")
         target = tmp_path / "link.txt"
 
-        def fake_symlink(src, dst):
+        def fake_symlink(src, dst, **kwargs):
             err = OSError("permission denied")
             err.winerror = 1314
             raise err
@@ -164,7 +186,7 @@ class TestSymlinkErrorTranslation:
         source.write_text("payload")
         target = tmp_path / "link.txt"
 
-        def fake_symlink(src, dst):
+        def fake_symlink(src, dst, **kwargs):
             raise OSError("disk gremlins")
 
         monkeypatch.setattr(deploy.os, "symlink", fake_symlink)
@@ -237,5 +259,31 @@ class TestExecuteDeploymentIntegration:
 
     def test_unknown_variant_reports_error(self, tmp_path, capsys):
         (tmp_path / "config.json").write_text(json.dumps({"home": {"type": "dotfiles", "links": {}}}), encoding="utf-8")
-        execute_deployment("ghost", repo_root=tmp_path)
+        assert execute_deployment("ghost", repo_root=tmp_path) == 1
         assert "ERROR" in capsys.readouterr().out
+
+
+class TestExecuteDeploymentExitCode:
+    def _config(self, tmp_path, target):
+        (tmp_path / "dotfiles").mkdir()
+        (tmp_path / "dotfiles" / "rc").write_text("x")
+        config = {"home": {"type": "dotfiles", "links": {"dotfiles/rc": str(target)}}}
+        (tmp_path / "config.json").write_text(json.dumps(config), encoding="utf-8")
+
+    def test_clean_run_returns_zero(self, tmp_path):
+        self._config(tmp_path, tmp_path / "out" / "rc")  # target absent -> would link
+        assert execute_deployment("home", repo_root=tmp_path, dry_run=True) == 0
+
+    def test_blocking_real_file_returns_one(self, tmp_path):
+        out = tmp_path / "out"
+        out.mkdir()
+        (out / "rc").write_text("real")  # real file blocks the target, no --backup
+        self._config(tmp_path, out / "rc")
+        assert execute_deployment("home", repo_root=tmp_path, dry_run=True) == 1
+
+    def test_missing_source_returns_one(self, tmp_path):
+        out = tmp_path / "out"
+        out.mkdir()
+        config = {"home": {"type": "dotfiles", "links": {"dotfiles/gone": str(out / "rc")}}}
+        (tmp_path / "config.json").write_text(json.dumps(config), encoding="utf-8")
+        assert execute_deployment("home", repo_root=tmp_path, dry_run=True) == 1

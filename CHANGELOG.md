@@ -3,6 +3,20 @@
 All notable changes to this project are documented here. This project adheres to
 [Semantic Versioning](https://semver.org/).
 
+## Unreleased
+
+### Fixed
+
+- **Exit codes**: `symlink-deploy`, `symlink-adopt`, `symlink-status`, and
+  `symlink-build` now exit non-zero when configuration fails or a link ends in an
+  error state, so scripts and CI can gate on them. Previously a failed run still
+  exited `0`. `symlink-status` exits non-zero when any link is broken, points at
+  the wrong target, is blocked by a real file, has a missing source, or when
+  sources collide on a target; a not-yet-deployed link is not an error.
+- **Windows directory links**: directory sources now pass
+  `target_is_directory=True` to `os.symlink`, which previously produced a broken
+  file-symlink on Windows (no-op on POSIX).
+
 ## 0.1.0
 
 Initial release.
