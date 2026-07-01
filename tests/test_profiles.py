@@ -256,6 +256,7 @@ class TestHostContext:
         assert normalize_platform("osx") == "macos"
         assert normalize_platform("linux") == "linux"
         assert normalize_platform("freebsd") == "freebsd"  # unknown passes through
+        assert normalize_platform("Plan9") == "plan9"      # unknown is still lowercased
 
     def test_overrides_win(self):
         c = current_host_context(platform_override="macos", host_override="mb")

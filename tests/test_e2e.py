@@ -6,21 +6,7 @@ Dev-Mode Windows box) and skip where the privilege is unavailable.
 import json
 import os
 
-import pytest
-
 from symlink_manager.cli import deploy_main, status_main, adopt_main
-
-
-@pytest.fixture
-def symlink_support(tmp_path):
-    src = tmp_path / "_probe_src"
-    src.write_text("x")
-    link = tmp_path / "_probe_link"
-    try:
-        os.symlink(src, link)
-    except OSError:
-        pytest.skip("symlink creation not permitted in this environment")
-    link.unlink()
 
 
 def _write_config(tmp_path, links):
@@ -94,3 +80,38 @@ class TestDeployLifecycle:
         assert (src / "a").read_text() == "EXISTING"   # captured into the repo
         link = out / "a"
         assert link.is_symlink() and link.read_text() == "EXISTING"  # linked back
+
+    def test_deploy_directory_source_links_as_directory(self, tmp_path, symlink_support):
+        # End-to-end check of the Windows target_is_directory fix: a directory
+        # source must resolve as a real directory link, not a broken file-symlink.
+        conf = tmp_path / "dotfiles" / "nvim"
+        conf.mkdir(parents=True)
+        (conf / "init.lua").write_text("-- config")
+        out = tmp_path / "out"
+        out.mkdir()
+        link = out / "nvim"
+        _write_config(tmp_path, {"dotfiles/nvim": str(link)})
+
+        deploy_main(["home", "--repo-root", str(tmp_path)])
+
+        assert link.is_symlink()
+        assert link.is_dir()                                    # not a dangling file-symlink
+        assert (link / "init.lua").read_text() == "-- config"   # readable through the link
+
+    def test_deploy_repoints_a_wrong_target_symlink(self, tmp_path, symlink_support):
+        # A pre-existing symlink pointing at the wrong place must be re-pointed to
+        # our source (the unlink + recreate path), not left stale or errored.
+        src = tmp_path / "dotfiles"
+        src.mkdir()
+        (src / "a").write_text("CORRECT")
+        stale = tmp_path / "stale"
+        stale.write_text("STALE")
+        out = tmp_path / "out"
+        out.mkdir()
+        link = out / "a"
+        os.symlink(stale, link)  # already a symlink, but to the wrong target
+        _write_config(tmp_path, {"dotfiles/a": str(link)})
+
+        deploy_main(["home", "--repo-root", str(tmp_path)])
+
+        assert link.is_symlink() and link.read_text() == "CORRECT"  # re-pointed to our source

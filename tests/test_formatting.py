@@ -78,3 +78,34 @@ class TestFormatTreeIntegration:
 
         assert formatting.format_tree(tmp_path, IdentityFormatter()) is True
         assert target.read_text(encoding="utf-8") == original   # byte-for-byte
+
+    def test_no_files_to_process_is_success(self, tmp_path, capsys):
+        assert formatting.format_tree(tmp_path, SkyrimBatchFormatter()) is True
+        assert "No text files found" in capsys.readouterr().out
+
+
+class _RaisingFormatter:
+    """A formatter that always fails, to exercise error-severity routing."""
+
+    def format(self, text: str) -> str:
+        raise ValueError("boom")
+
+
+class TestFormatTreeErrorSeverity:
+    def test_error_in_critical_file_halts(self, tmp_path, capsys):
+        core = tmp_path / "core"
+        core.mkdir()
+        (core / "x.txt").write_text("data", encoding="utf-8")
+
+        assert formatting.format_tree(tmp_path, _RaisingFormatter()) is False
+        assert "FATAL ERROR" in capsys.readouterr().out
+
+    def test_error_in_inactive_variant_is_tolerated(self, tmp_path, capsys):
+        variant = tmp_path / "variants" / "other"
+        variant.mkdir(parents=True)
+        (variant / "x.txt").write_text("data", encoding="utf-8")
+
+        # The failing file belongs to an *inactive* variant, so the sweep survives.
+        assert formatting.format_tree(tmp_path, _RaisingFormatter(), active_variant="nolvus") is True
+        out = capsys.readouterr().out
+        assert "WARNING" in out and "Ignored Errors" in out

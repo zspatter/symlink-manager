@@ -2,22 +2,8 @@
 import json
 import os
 
-import pytest
-
 from symlink_manager import status
 from symlink_manager.status import LinkState, link_status, run_status
-
-
-@pytest.fixture
-def symlink_support(tmp_path):
-    src = tmp_path / "_probe_src"
-    src.write_text("x")
-    link = tmp_path / "_probe_link"
-    try:
-        os.symlink(src, link)
-    except OSError:
-        pytest.skip("symlink creation not permitted in this environment")
-    link.unlink()
 
 
 # ---------------------------------------------------------------------------
@@ -93,5 +79,23 @@ class TestRunStatus:
 
     def test_unknown_variant_reports_error(self, tmp_path, capsys):
         (tmp_path / "config.json").write_text(json.dumps({"home": {"type": "dotfiles", "links": {}}}), encoding="utf-8")
-        run_status("ghost", repo_root=tmp_path)
+        assert run_status("ghost", repo_root=tmp_path) == 1
         assert "ERROR" in capsys.readouterr().out
+
+    def test_conflict_alone_drives_failure_exit(self, tmp_path, capsys):
+        # Two sources -> one target. Each link's own state is benign ("not
+        # deployed"), but the collision must still make status report failure.
+        (tmp_path / "dotfiles").mkdir()
+        (tmp_path / "dotfiles" / "a").write_text("x")
+        (tmp_path / "dotfiles" / "b").write_text("x")
+        out = tmp_path / "out"
+        out.mkdir()
+        shared = str(out / "shared")
+        config = {"home": {"type": "dotfiles", "links": {
+            "dotfiles/a": shared,
+            "dotfiles/b": shared,
+        }}}
+        (tmp_path / "config.json").write_text(json.dumps(config), encoding="utf-8")
+
+        assert run_status("home", repo_root=tmp_path) == 1
+        assert "CONFLICT" in capsys.readouterr().out

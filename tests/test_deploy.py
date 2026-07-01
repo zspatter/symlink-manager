@@ -1,6 +1,5 @@
 """Unit tests for the symlink engine: link helpers, summary, error translation."""
 import json
-import os
 from pathlib import Path
 
 import pytest
@@ -16,19 +15,6 @@ from symlink_manager.deploy import (
     duplicate_targets,
     warn_duplicate_targets,
 )
-
-
-@pytest.fixture
-def symlink_support(tmp_path):
-    """Skip the test if the OS/account cannot create symlinks (e.g. no Dev Mode)."""
-    src = tmp_path / "_probe_src"
-    src.write_text("x")
-    link = tmp_path / "_probe_link"
-    try:
-        os.symlink(src, link)
-    except OSError:
-        pytest.skip("symlink creation not permitted in this environment")
-    link.unlink()
 
 
 # ---------------------------------------------------------------------------
@@ -276,6 +262,21 @@ class TestDryRun:
         assert real_tgt.read_text() == "real"   # untouched
 
 
+class TestProcessLinkQueueRemoval:
+    def test_protects_real_file_and_reports_it(self, tmp_path, capsys):
+        real = tmp_path / "real.txt"
+        real.write_text("keep me")
+        stats = process_link_queue([(tmp_path / "src", real)], is_removal=True)
+        out = capsys.readouterr().out
+        assert stats[DeployStatus.ERROR_REAL_FILE] == 1
+        assert "real file protected" in out
+        assert real.read_text() == "keep me"   # never deleted
+
+    def test_missing_target_is_not_found(self, tmp_path):
+        stats = process_link_queue([(tmp_path / "src", tmp_path / "gone")], is_removal=True)
+        assert stats[DeployStatus.NOT_FOUND] == 1
+
+
 # ---------------------------------------------------------------------------
 # execute_deployment integration (config -> resolve -> queue -> summary)
 # ---------------------------------------------------------------------------
@@ -323,6 +324,22 @@ class TestExecuteDeploymentIntegration:
 
         report = capsys.readouterr().out
         assert "CONFLICT" in report and "a" in report and "b" in report
+
+    def test_override_on_real_run_warns(self, tmp_path, capsys, monkeypatch):
+        # A non-dry run with --platform/--host targets THIS machine with another
+        # host's selection, which is risky; it must warn.
+        monkeypatch.setattr(deploy.os, "symlink", lambda s, d, **kw: None)
+        (tmp_path / "dotfiles").mkdir()
+        (tmp_path / "dotfiles" / "rc").write_text("x")
+        out = tmp_path / "out"
+        out.mkdir()
+        config = {"home": {"type": "dotfiles", "links": {"dotfiles/rc": str(out / "rc")}}}
+        (tmp_path / "config.json").write_text(json.dumps(config), encoding="utf-8")
+
+        execute_deployment("home", repo_root=tmp_path, platform_override="linux")  # real run
+
+        out_text = capsys.readouterr().out
+        assert "WARNING" in out_text and "override" in out_text
 
 
 class TestExecuteDeploymentExitCode:

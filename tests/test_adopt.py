@@ -2,22 +2,8 @@
 import json
 import os
 
-import pytest
-
 from symlink_manager import deploy
 from symlink_manager.adopt import AdoptStatus, adopt_link, run_adopt
-
-
-@pytest.fixture
-def symlink_support(tmp_path):
-    src = tmp_path / "_probe_src"
-    src.write_text("x")
-    link = tmp_path / "_probe_link"
-    try:
-        os.symlink(src, link)
-    except OSError:
-        pytest.skip("symlink creation not permitted in this environment")
-    link.unlink()
 
 
 # ---------------------------------------------------------------------------
