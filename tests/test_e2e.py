@@ -115,3 +115,18 @@ class TestDeployLifecycle:
         deploy_main(["home", "--repo-root", str(tmp_path)])
 
         assert link.is_symlink() and link.read_text() == "CORRECT"  # re-pointed to our source
+
+    def test_deploy_relative_creates_relative_link(self, tmp_path, symlink_support):
+        src = tmp_path / "dotfiles"
+        src.mkdir()
+        (src / "a").write_text("REL")
+        out = tmp_path / "out"
+        out.mkdir()
+        link = out / "a"
+        _write_config(tmp_path, {"dotfiles/a": str(link)})
+
+        deploy_main(["home", "--relative", "--repo-root", str(tmp_path)])
+
+        assert link.is_symlink()
+        assert not os.path.isabs(os.readlink(link))  # the stored link text is relative
+        assert link.read_text() == "REL"             # and it still resolves to the source

@@ -31,7 +31,7 @@ ADOPT_LABELS = {
 }
 
 
-def adopt_link(source_path, target_path, dry_run=False):
+def adopt_link(source_path, target_path, dry_run=False, relative=False):
     """Captures an existing real file at the target into the repo source + links back."""
     if source_path.exists():
         return AdoptStatus.ALREADY_IN_REPO
@@ -46,7 +46,8 @@ def adopt_link(source_path, target_path, dry_run=False):
 
     source_path.parent.mkdir(parents=True, exist_ok=True)
     shutil.move(str(target_path), str(source_path))  # capture into the repo
-    status = safely_create_symlink(source_path, target_path)  # may raise SymlinkPermissionError
+    # may raise SymlinkPermissionError
+    status = safely_create_symlink(source_path, target_path, relative=relative)
     if status in (DeployStatus.LINKED, DeployStatus.SKIPPED_EXISTING):
         return AdoptStatus.ADOPTED
     return AdoptStatus.ERROR
@@ -65,11 +66,13 @@ def _summary(stats):
     return "\n".join(lines)
 
 
-def run_adopt(variant_key, repo_root=None, dry_run=False, platform_override=None, host_override=None):
+def run_adopt(variant_key, repo_root=None, dry_run=False, platform_override=None,
+              host_override=None, relative=False):
     """Adopts every adoptable link in a profile (moves machine files into the repo).
 
     Returns a process-style exit code: 0 on success, 1 if configuration failed or
-    any link could not be adopted.
+    any link could not be adopted. ``relative`` (or a profile's ``"relative":
+    true``) links captured files back with a relative symlink.
     """
     repo_root = repo_root or Path.cwd()
     context = current_host_context(platform_override, host_override)
@@ -92,10 +95,11 @@ def run_adopt(variant_key, repo_root=None, dry_run=False, platform_override=None
 
     warn_duplicate_targets(link_specs)  # two sources capturing one target is ambiguous
 
+    use_relative = relative or bool(profile.get("relative", False))
     stats = {state: 0 for state in AdoptStatus}
     verb = "would adopt" if dry_run else "adopted"
     for source, target in link_specs:
-        state = adopt_link(source, target, dry_run=dry_run)
+        state = adopt_link(source, target, dry_run=dry_run, relative=use_relative)
         stats[state] += 1
         if state is AdoptStatus.ADOPTED:
             print(f"  [+] {verb}: {target} -> {source}")

@@ -68,6 +68,8 @@ Each entry is a **profile** keyed by name. Its `type` selects how files are form
 }
 ```
 
+Any profile may set `"relative": true` (or pass `--relative`) to store links as paths relative to each target's directory instead of absolute, which stays valid if the whole tree is relocated.
+
 Preview a host's selection with `symlink-deploy <profile> --dry-run [--platform <p>] [--host <h>]`.
 
 ### `manifest.json`
@@ -140,6 +142,8 @@ Each is also a subcommand of `python -m symlink_manager` (e.g. `python -m symlin
 See **[USAGE.md](USAGE.md)** for the full command reference - every flag, examples, and common workflows.
 
 *Note: The engine aggressively protects real files. It will not overwrite existing non-symlink files in the target directory.* Use `symlink-deploy <profile> --backup` to rename a blocking real file aside (`<name>.<timestamp>.bak`) and link anyway - handy when onboarding a machine that already has the files.
+
+*Windows note: creating symlinks needs the privilege a normal account lacks by default. Enable **Developer Mode** (Settings → System → For developers) or run from an **Administrator** shell; otherwise the engine reports a clear error (`WinError 1314`) rather than failing cryptically. macOS and Linux need nothing extra.*
 
 ## Development
 

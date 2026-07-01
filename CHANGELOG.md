@@ -20,6 +20,10 @@ All notable changes to this project are documented here. This project adheres to
   so status is easy to consume from scripts/CI. The exit code is unchanged.
 - Linting/typing: `ruff` and `mypy` configured (`pip install -e ".[lint]"`) and
   run as a CI job.
+- Relative symlinks: `--relative` on `deploy`/`build`/`adopt`, or `"relative":
+  true` on a profile, stores links relative to each target's directory (portable
+  when the tree is relocated). Falls back to absolute if no relative path exists
+  (e.g. different Windows drives).
 
 ### Changed
 

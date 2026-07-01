@@ -76,13 +76,17 @@ def warn_duplicate_targets(link_specs, blank_line_before=False):
 class SymlinkPermissionError(Exception):
     """Raised when the OS denies symlink creation (Windows: needs Dev Mode/admin)."""
 
-def safely_create_symlink(source_path, target_path, dry_run=False, backup=False):
+def safely_create_symlink(source_path, target_path, dry_run=False, backup=False, relative=False):
     """Creates a symlink with idempotency checks, protecting real files.
 
     Missing target parent directories are created. A real file at the target is
     protected (ERROR_REAL_FILE) unless ``backup`` is set, in which case it is
     renamed aside (``<name>.<timestamp>.bak``) before linking. When ``dry_run``
     is set, returns the status that *would* result without touching the filesystem.
+
+    With ``relative``, the link text is a path relative to the target's directory
+    (portable when the tree is relocated) instead of an absolute path; it falls
+    back to absolute if no relative path exists (e.g. different Windows drives).
     """
     if not source_path.exists():
         return DeployStatus.ERROR_MISSING_SOURCE
@@ -117,9 +121,17 @@ def safely_create_symlink(source_path, target_path, dry_run=False, backup=False)
 
     try:
         target_path.parent.mkdir(parents=True, exist_ok=True)
+        link_source = source_path
+        if relative:
+            try:
+                link_source = Path(os.path.relpath(source_path, start=target_path.parent))
+            except ValueError:
+                # No relative path exists (e.g. source and target on different
+                # Windows drives); fall back to an absolute link.
+                print(f"  [!] WARNING: no relative path across drives; linking absolute: {target_path}")
         # target_is_directory matters on Windows: a directory source linked with
         # the default (False) yields a broken file-symlink. No-op on POSIX.
-        os.symlink(source_path, target_path, target_is_directory=source_path.is_dir())
+        os.symlink(link_source, target_path, target_is_directory=source_path.is_dir())
         return DeployStatus.BACKED_UP if backed_up else DeployStatus.LINKED
     except OSError as e:
         if getattr(e, 'winerror', None) == 1314:
@@ -151,7 +163,7 @@ def safely_remove_symlink(target_path, dry_run=False):
 # Link Queue
 # ==============================================================================
 
-def process_link_queue(link_specs, is_removal, dry_run=False, backup=False):
+def process_link_queue(link_specs, is_removal, dry_run=False, backup=False, relative=False):
     """Executes (or, when dry_run, previews) filesystem ops for the link specs."""
     stats = {status: 0 for status in DeployStatus}
     verb = "would " if dry_run else ""
@@ -167,7 +179,8 @@ def process_link_queue(link_specs, is_removal, dry_run=False, backup=False):
                 case DeployStatus.ERROR_REAL_FILE:
                     print(f"  [!] {verb}skip (real file protected): {target}")
         else:
-            status = safely_create_symlink(source, target, dry_run=dry_run, backup=backup)
+            status = safely_create_symlink(source, target, dry_run=dry_run, backup=backup,
+                                           relative=relative)
             stats[status] += 1
 
             match status:
@@ -211,11 +224,14 @@ def build_smart_summary(stats, is_removal, dry_run=False):
 # ==============================================================================
 
 def execute_deployment(variant_key, is_removal=False, repo_root=None,
-                       dry_run=False, platform_override=None, host_override=None, backup=False):
+                       dry_run=False, platform_override=None, host_override=None, backup=False,
+                       relative=False):
     """The master controller for a single deployment run.
 
     Returns a process-style exit code: 0 on success, 1 if configuration failed or
     any link spec ended in an error state (see ``ERROR_STATUSES``).
+
+    ``relative`` (or a profile's ``"relative": true``) creates relative links.
     """
     repo_root = repo_root or Path.cwd()
     context = current_host_context(platform_override, host_override)
@@ -236,12 +252,15 @@ def execute_deployment(variant_key, is_removal=False, repo_root=None,
         print("  [!] WARNING: --platform/--host override on a real run targets THIS "
               "machine with another host's links; use --dry-run to preview.")
 
+    use_relative = relative or bool(profile.get("relative", False))
     type_name = profile.get("type", "skyrim_batch")
-    print(f"  [*] Profile: {variant_key} ({type_name}) - {len(link_specs)} link(s) "
+    rel_note = " relative" if use_relative and not is_removal else ""
+    print(f"  [*] Profile: {variant_key} ({type_name}) - {len(link_specs)}{rel_note} link(s) "
           f"[{context.platform}/{context.host}]\n")
 
     warn_duplicate_targets(link_specs)  # surface last-writer-wins collisions up front
 
-    stats = process_link_queue(link_specs, is_removal, dry_run=dry_run, backup=backup)
+    stats = process_link_queue(link_specs, is_removal, dry_run=dry_run, backup=backup,
+                               relative=use_relative)
     print(build_smart_summary(stats, is_removal, dry_run=dry_run))
     return 1 if error_count(stats) else 0

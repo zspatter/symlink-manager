@@ -9,6 +9,7 @@
     },
     "home": {
         "type": "dotfiles",
+        "relative": false,
         "links": {
             "dotfiles/git/gitconfig": "~/.gitconfig",
             "dotfiles/profile/bashrc": { "target": "~/.bashrc", "platforms": ["linux", "macos"] },

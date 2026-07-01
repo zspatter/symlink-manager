@@ -39,6 +39,8 @@ def deploy_main(argv=None):
                         help="Preview what would change without touching the filesystem.")
     parser.add_argument("--backup", action="store_true",
                         help="Rename a blocking real file aside (<name>.<timestamp>.bak) instead of skipping it.")
+    parser.add_argument("--relative", action="store_true",
+                        help="Create relative symlinks (portable if the tree is relocated) instead of absolute.")
     parser.add_argument("--platform", default=None,
                         help="Override the detected platform (windows/macos/linux) for link selection.")
     parser.add_argument("--host", default=None,
@@ -50,7 +52,7 @@ def deploy_main(argv=None):
         code = execute_deployment(
             args.variant, is_removal=args.remove, repo_root=_repo_root(args),
             dry_run=args.dry_run, platform_override=args.platform, host_override=args.host,
-            backup=args.backup,
+            backup=args.backup, relative=args.relative,
         )
     except SymlinkPermissionError as e:
         print(f"\n[FATAL] {e}")
@@ -70,6 +72,8 @@ def build_main(argv=None):
                              "(also skips the mutating format/audit stages).")
     parser.add_argument("--backup", action="store_true",
                         help="Rename a blocking real file aside (<name>.<timestamp>.bak) instead of skipping it.")
+    parser.add_argument("--relative", action="store_true",
+                        help="Create relative symlinks (portable if the tree is relocated) instead of absolute.")
     parser.add_argument("--platform", default=None,
                         help="Override the detected platform (windows/macos/linux) for link selection.")
     parser.add_argument("--host", default=None,
@@ -81,7 +85,7 @@ def build_main(argv=None):
         run_pipeline(
             args.variant, is_removal=args.remove, repo_root=_repo_root(args),
             dry_run=args.dry_run, backup=args.backup,
-            platform_override=args.platform, host_override=args.host,
+            platform_override=args.platform, host_override=args.host, relative=args.relative,
         )
     except SymlinkPermissionError as e:
         print(f"\n[!] FATAL: {e}")
@@ -123,6 +127,8 @@ def adopt_main(argv=None):
     parser.add_argument("variant", help="The profile/variant to adopt (e.g. dotfiles).")
     parser.add_argument("--dry-run", action="store_true",
                         help="Preview what would be adopted without touching the filesystem.")
+    parser.add_argument("--relative", action="store_true",
+                        help="Link the captured file back with a relative symlink instead of absolute.")
     parser.add_argument("--platform", default=None,
                         help="Override the detected platform (windows/macos/linux) for link selection.")
     parser.add_argument("--host", default=None,
@@ -132,7 +138,8 @@ def adopt_main(argv=None):
 
     try:
         code = run_adopt(args.variant, repo_root=_repo_root(args), dry_run=args.dry_run,
-                         platform_override=args.platform, host_override=args.host)
+                         platform_override=args.platform, host_override=args.host,
+                         relative=args.relative)
     except SymlinkPermissionError as e:
         print(f"\n[FATAL] {e}")
         sys.exit(1)

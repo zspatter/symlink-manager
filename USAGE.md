@@ -31,6 +31,11 @@ Every command runs from the root of your parent repository (or pass
   (otherwise the command fails with a clear message), and a profile key the
   active type doesn't recognize (e.g. a misspelled `target_dir`) prints a
   warning. Unrecognized keys are ignored, never fatal.
+- **Absolute vs relative links** - links are absolute by default. Pass
+  `--relative` (or set `"relative": true` on the profile) to store the link as a
+  path relative to the target's directory, which survives relocating the tree as
+  a whole. If no relative path exists (e.g. different Windows drives), it warns
+  and falls back to absolute.
 
 `deploy`, `status`, and `adopt` work on any profile. `format`, `audit`, and
 `build` only do anything for *formatting* profile types (`skyrim_batch` today):
@@ -46,6 +51,7 @@ Create (or with `--remove`, tear down) the profile's symlinks.
 | --- | --- |
 | `--remove` | Remove the profile's links instead of creating them. |
 | `--backup` | Rename a blocking real file to `<name>.<timestamp>.bak`, then link. |
+| `--relative` | Create relative symlinks instead of absolute (or set `"relative": true` on the profile). |
 | `--dry-run` | Preview without touching the filesystem. |
 | `--platform <p>` | Override the platform (`windows`/`macos`/`linux`) for selection. |
 | `--host <h>` | Override the hostname for selection. |
@@ -69,6 +75,7 @@ The full pipeline for formatting domains: **format → audit → deploy**. For a
 | `--remove` | Skip format/audit and remove links. |
 | `--dry-run` | Preview the deploy without touching the filesystem; also skips the mutating format/audit stages. |
 | `--backup` | Rename a blocking real file to `<name>.<timestamp>.bak`, then link. |
+| `--relative` | Create relative symlinks instead of absolute. |
 | `--platform <p>` / `--host <h>` | Override the platform/hostname for link selection. |
 | `--repo-root <path>` | Act on this repo root. |
 
@@ -111,6 +118,7 @@ control.
 | Flag | Effect |
 | --- | --- |
 | `--dry-run` | Preview what would be adopted. |
+| `--relative` | Link the captured file back with a relative symlink instead of absolute. |
 | `--platform <p>` / `--host <h>` | Restrict to another host's selection. |
 | `--repo-root <path>` | Act on this repo root. |
 

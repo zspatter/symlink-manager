@@ -109,6 +109,35 @@ class TestSafelyCreateSymlink:
         assert safely_create_symlink(source, target) == DeployStatus.LINKED
         assert captured.get("target_is_directory") is False
 
+    def test_relative_link_uses_relative_path(self, tmp_path, monkeypatch):
+        captured = {}
+        monkeypatch.setattr(deploy.os, "symlink",
+                            lambda src, dst, **kw: captured.update(src=src))
+        source = tmp_path / "repo" / "rc"
+        source.parent.mkdir()
+        source.write_text("x")
+        target = tmp_path / "home" / "link"
+        assert safely_create_symlink(source, target, relative=True) == DeployStatus.LINKED
+        link_text = Path(captured["src"])
+        assert not link_text.is_absolute()                                  # relative link text
+        assert (target.parent / link_text).resolve() == source.resolve()    # still resolves to source
+
+    def test_relative_falls_back_to_absolute_across_drives(self, tmp_path, monkeypatch, capsys):
+        captured = {}
+        monkeypatch.setattr(deploy.os, "symlink",
+                            lambda src, dst, **kw: captured.update(src=src))
+
+        def no_relative(*a, **k):
+            raise ValueError("path is on a different drive")
+
+        monkeypatch.setattr(deploy.os.path, "relpath", no_relative)
+        source = tmp_path / "rc"
+        source.write_text("x")
+        target = tmp_path / "sub" / "link"
+        assert safely_create_symlink(source, target, relative=True) == DeployStatus.LINKED
+        assert Path(captured["src"]).is_absolute()          # fell back to an absolute link
+        assert "no relative path" in capsys.readouterr().out
+
 
 class TestSafelyRemoveSymlink:
     def test_removes_symlink(self, tmp_path, symlink_support):
@@ -356,6 +385,29 @@ class TestExecuteDeploymentIntegration:
         execute_deployment("home", repo_root=tmp_path, dry_run=True)
 
         assert "unrecognized key 'targett_dir'" in capsys.readouterr().out
+
+    def _relative_repo(self, tmp_path, extra=None):
+        (tmp_path / "dotfiles").mkdir()
+        (tmp_path / "dotfiles" / "rc").write_text("x")
+        out = tmp_path / "out"
+        out.mkdir()
+        profile = {"type": "dotfiles", "links": {"dotfiles/rc": str(out / "rc")}}
+        profile.update(extra or {})
+        (tmp_path / "config.json").write_text(json.dumps({"home": profile}), encoding="utf-8")
+
+    def test_relative_flag_makes_relative_links(self, tmp_path, monkeypatch):
+        captured = []
+        monkeypatch.setattr(deploy.os, "symlink", lambda src, dst, **kw: captured.append(Path(src)))
+        self._relative_repo(tmp_path)
+        execute_deployment("home", repo_root=tmp_path, relative=True)
+        assert captured and not captured[0].is_absolute()
+
+    def test_profile_relative_key_makes_relative_links(self, tmp_path, monkeypatch):
+        captured = []
+        monkeypatch.setattr(deploy.os, "symlink", lambda src, dst, **kw: captured.append(Path(src)))
+        self._relative_repo(tmp_path, extra={"relative": True})
+        execute_deployment("home", repo_root=tmp_path)  # no flag; profile opts in
+        assert captured and not captured[0].is_absolute()
 
 
 class TestExecuteDeploymentExitCode:

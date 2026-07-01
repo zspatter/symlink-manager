@@ -48,6 +48,17 @@ class TestAdoptLink:
         assert not source.exists()                      # nothing moved
         assert target.read_text() == "machine config"   # untouched
 
+    def test_relative_links_back_relative(self, tmp_path, monkeypatch):
+        captured = []
+        monkeypatch.setattr(deploy.os, "symlink", lambda src, dst, **kw: captured.append(str(src)))
+        source = tmp_path / "dotfiles" / "rc"          # not in repo yet
+        target = tmp_path / "out" / "rc"
+        target.parent.mkdir(parents=True)
+        target.write_text("machine config")
+
+        assert adopt_link(source, target, relative=True) == AdoptStatus.ADOPTED
+        assert captured and not os.path.isabs(captured[0])   # linked back relatively
+
 
 # ---------------------------------------------------------------------------
 # run_adopt

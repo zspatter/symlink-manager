@@ -25,7 +25,7 @@ def check_configuration(variant_key, repo_root):
     return profile
 
 def run_pipeline(variant_key, is_removal=False, repo_root=None, dry_run=False,
-                 backup=False, platform_override=None, host_override=None):
+                 backup=False, platform_override=None, host_override=None, relative=False):
     """Executes the strict Format -> Maintain -> Deploy pipeline."""
     repo_root = repo_root or Path.cwd()
 
@@ -75,7 +75,8 @@ def run_pipeline(variant_key, is_removal=False, repo_root=None, dry_run=False,
     print(f"\n>>> STAGE 3: EXECUTING TARGET ACTIONS -> {variant_key.upper()}")
     code = execute_deployment(
         variant_key, is_removal=is_removal, repo_root=repo_root, dry_run=dry_run,
-        backup=backup, platform_override=platform_override, host_override=host_override)
+        backup=backup, platform_override=platform_override, host_override=host_override,
+        relative=relative)
 
     print("\n" + "=" * 50)
     print(f" {mode_title} PIPELINE COMPLETE".center(50))

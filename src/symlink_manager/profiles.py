@@ -181,12 +181,12 @@ PROFILE_TYPES = {
     "skyrim_batch": ProfileType(
         FORMATTERS["skyrim_batch"], resolve_skyrim, formats=True,
         known_keys=frozenset({
-            "type", "source_root", "target_dir",
+            "type", "source_root", "target_dir", "relative",
             "include_core", "include_builds", "variant_folder",
         })),
     "dotfiles": ProfileType(
         FORMATTERS["identity"], resolve_dotfiles, formats=False,
-        known_keys=frozenset({"type", "links"})),
+        known_keys=frozenset({"type", "links", "relative"})),
 }
 
 def get_profile_type(profile):
