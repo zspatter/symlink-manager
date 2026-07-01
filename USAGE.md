@@ -55,10 +55,14 @@ The full pipeline for formatting domains: **format → audit → deploy**. For a
 | Flag | Effect |
 | --- | --- |
 | `--remove` | Skip format/audit and remove links. |
+| `--dry-run` | Preview the deploy without touching the filesystem; also skips the mutating format/audit stages. |
+| `--backup` | Rename a blocking real file to `<name>.<timestamp>.bak`, then link. |
+| `--platform <p>` / `--host <h>` | Override the platform/hostname for link selection. |
 | `--repo-root <path>` | Act on this repo root. |
 
 ```bash
-symlink-build nolvus        # format the batch tree, regenerate manifest.md, then deploy
+symlink-build nolvus            # format the batch tree, regenerate manifest.md, then deploy
+symlink-build nolvus --dry-run  # preview the deploy only (no formatting, no links written)
 ```
 
 ## `symlink-status <profile>`

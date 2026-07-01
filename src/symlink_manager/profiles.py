@@ -6,7 +6,6 @@ whether the pipeline runs its formatting stage. Every resolver returns a list of
 ``LinkSpec`` pairs, which the domain-agnostic link engine in :mod:`deploy`
 consumes identically.
 """
-import json
 import os
 import platform
 import sys
@@ -14,7 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable
 
-from .config import ConfigError
+from .config import ConfigError, load_json
 from .formatters import FORMATTERS, Formatter
 
 LinkSpec = tuple[Path, Path]  # (source, target)
@@ -58,8 +57,12 @@ def _link_matches(candidate, context):
         if context.platform not in wanted:
             return False
     hosts = candidate.get("hosts")
-    if hosts is not None and context.host not in set(_as_list(hosts)):
-        return False
+    if hosts is not None:
+        # Hostnames are case-insensitive (Windows in particular varies the case
+        # of platform.node()), so match case-folded on both sides.
+        wanted = {h.casefold() for h in _as_list(hosts)}
+        if context.host.casefold() not in wanted:
+            return False
     return True
 
 def _select_target(value, context, rel_source):
@@ -110,8 +113,7 @@ def gather_sources(config, variant_key, repo_root):
     variant_dir = base / config.get("variant_folder", "")
 
     if manifest_path.exists() and variant_dir.exists():
-        with open(manifest_path, 'r', encoding='utf-8') as f:
-            manifest_data = json.load(f)
+        manifest_data = load_json(manifest_path, "manifest.json")
 
         for script_name, active_variants in manifest_data.items():
             if variant_key in active_variants:

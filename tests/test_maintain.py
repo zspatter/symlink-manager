@@ -4,6 +4,7 @@ import json
 import pytest
 
 from symlink_manager import maintain as maint
+from symlink_manager.config import ConfigError
 
 
 # ---------------------------------------------------------------------------
@@ -51,6 +52,12 @@ class TestLoadManifest:
         # No silent template scaffolding - a missing manifest is a hard read error.
         with pytest.raises(FileNotFoundError):
             maint.load_manifest(tmp_path / "manifest.json")
+
+    def test_malformed_manifest_raises_configerror(self, tmp_path):
+        manifest_path = tmp_path / "manifest.json"
+        manifest_path.write_text("{ not valid json", encoding="utf-8")
+        with pytest.raises(ConfigError, match="not valid JSON"):
+            maint.load_manifest(manifest_path)
 
 
 class TestRunMaintenance:

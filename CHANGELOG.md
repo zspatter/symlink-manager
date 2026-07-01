@@ -5,6 +5,21 @@ All notable changes to this project are documented here. This project adheres to
 
 ## Unreleased
 
+### Added
+
+- `symlink-build` now accepts `--dry-run`, `--backup`, `--platform`, and `--host`
+  (previously only `--remove`), so the full pipeline can be previewed and
+  simulated for other hosts. A dry run skips the mutating format/audit stages and
+  previews the deploy only.
+
+### Changed
+
+- Host matching (`hosts`) is now case-insensitive, matching platform matching.
+  `platform.node()` casing varies by OS, so a config `hosts` entry no longer has
+  to match the exact case.
+- A malformed `config.json` or `manifest.json` now reports a clean error (and a
+  non-zero exit) instead of a raw `JSONDecodeError` traceback.
+
 ### Fixed
 
 - **Exit codes**: `symlink-deploy`, `symlink-adopt`, `symlink-status`, and

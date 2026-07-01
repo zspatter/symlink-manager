@@ -200,6 +200,13 @@ class TestConditionalLinks:
         profile = {"links": {"x": {"target": "~/x", "platforms": "windows", "hosts": ["pc-a"]}}}
         assert resolve_dotfiles(profile, "h", tmp_path, ctx("windows", "pc-b")) == []
 
+    def test_host_match_is_case_insensitive(self, tmp_path):
+        # platform.node() casing varies by OS; a config host must match regardless.
+        profile = {"links": {"x": {"target": "~/x", "hosts": ["Work-Mac"]}}}
+        assert len(resolve_dotfiles(profile, "h", tmp_path, ctx("macos", "WORK-MAC"))) == 1
+        assert len(resolve_dotfiles(profile, "h", tmp_path, ctx("macos", "work-mac"))) == 1
+        assert resolve_dotfiles(profile, "h", tmp_path, ctx("macos", "home-mac")) == []
+
     def test_list_first_matching_candidate_wins(self, tmp_path, monkeypatch):
         monkeypatch.setenv("USERPROFILE", str(tmp_path))
         monkeypatch.setenv("HOME", str(tmp_path))

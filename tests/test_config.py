@@ -19,6 +19,11 @@ class TestLoadConfig:
         with pytest.raises(ConfigError, match="missing"):
             load_config(tmp_path)
 
+    def test_malformed_json_raises_configerror(self, tmp_path):
+        (tmp_path / "config.json").write_text("{ not valid json", encoding="utf-8")
+        with pytest.raises(ConfigError, match="not valid JSON"):
+            load_config(tmp_path)
+
 
 class TestSelectVariant:
     def test_returns_variant_block(self):

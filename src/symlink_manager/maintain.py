@@ -5,9 +5,10 @@ Compares ``manifest.json`` (the declared routing table) against the physical
 Skyrim/variants repo layout; the build pipeline only runs it for profile types
 that opt into it.
 """
-import json
 from pathlib import Path
 from collections import defaultdict
+
+from .config import load_json
 
 # ==============================================================================
 # Core Logic Functions
@@ -15,8 +16,7 @@ from collections import defaultdict
 
 def load_manifest(manifest_path):
     """Loads the JSON routing table of variant files."""
-    with open(manifest_path, 'r', encoding='utf-8') as f:
-        return json.load(f)
+    return load_json(manifest_path, "manifest.json")
 
 def scan_variants(variants_dir):
     """Crawls the physical file system to map actual variant implementations."""

@@ -35,6 +35,18 @@ def _dotfiles_repo(tmp_path):
     return tmp_path
 
 
+def _skyrim_repo(tmp_path):
+    """A minimal skyrim_batch repo with one unformatted core script."""
+    core = tmp_path / "core"
+    core.mkdir()
+    (core / "c1.txt").write_text("setav health 100")  # formatter would rewrite this
+    target = tmp_path / "target"
+    target.mkdir()
+    config = {"sky": {"type": "skyrim_batch", "target_dir": str(target), "include_core": True}}
+    (tmp_path / "config.json").write_text(json.dumps(config), encoding="utf-8")
+    return target
+
+
 # ---------------------------------------------------------------------------
 # Flag plumbing
 # ---------------------------------------------------------------------------
@@ -74,6 +86,29 @@ class TestFlagWiring:
         out = capsys.readouterr().out
         assert "does not require formatting" in out
         assert "PIPELINE COMPLETE" in out
+
+    def test_build_dry_run_previews_without_writing(self, tmp_path, capsys):
+        _dotfiles_repo(tmp_path)
+        build_main(["home", "--dry-run", "--repo-root", str(tmp_path)])
+        out = capsys.readouterr().out
+        assert "DRY RUN" in out
+        assert not (tmp_path / "out" / "common").exists()  # nothing created
+
+    def test_build_platform_override_filters(self, tmp_path, capsys):
+        _dotfiles_repo(tmp_path)
+        build_main(["home", "--dry-run", "--platform", "linux", "--repo-root", str(tmp_path)])
+        out = capsys.readouterr().out
+        assert "unixrc" in out          # linux-applicable link previewed
+        assert "winonly" not in out     # windows-only filtered out
+
+    def test_build_dry_run_skips_mutating_format_stage(self, tmp_path, capsys):
+        target = _skyrim_repo(tmp_path)
+        original = (tmp_path / "core" / "c1.txt").read_text()
+        build_main(["sky", "--dry-run", "--repo-root", str(tmp_path)])
+        out = capsys.readouterr().out
+        assert "skipping the mutating format/audit stages" in out
+        assert (tmp_path / "core" / "c1.txt").read_text() == original  # source not reformatted
+        assert not (target / "c1.txt").exists()                        # no link created
 
     def test_audit_without_manifest_is_noop(self, tmp_path, capsys):
         (tmp_path / "config.json").write_text("{}", encoding="utf-8")
@@ -137,6 +172,21 @@ class TestExitCodes:
     def test_status_not_deployed_exits_0(self, tmp_path):
         _dotfiles_repo(tmp_path)  # sources present, nothing deployed -> not a problem
         status_main(["home", "--repo-root", str(tmp_path)])  # no raise == exit 0
+
+    def test_malformed_config_exits_1(self, tmp_path, capsys):
+        (tmp_path / "config.json").write_text("{ not valid json", encoding="utf-8")
+        with pytest.raises(SystemExit) as exc:
+            deploy_main(["home", "--repo-root", str(tmp_path)])
+        assert exc.value.code == 1
+        assert "not valid JSON" in capsys.readouterr().out
+
+    def test_audit_malformed_manifest_exits_1(self, tmp_path, capsys):
+        (tmp_path / "config.json").write_text("{}", encoding="utf-8")
+        (tmp_path / "manifest.json").write_text("{ not valid json", encoding="utf-8")
+        with pytest.raises(SystemExit) as exc:
+            maintain_main(["--repo-root", str(tmp_path)])
+        assert exc.value.code == 1
+        assert "not valid JSON" in capsys.readouterr().out
 
     def test_adopt_error_exits_1(self, tmp_path, monkeypatch):
         # The link-back fails after the capture move -> adopt reports an error.

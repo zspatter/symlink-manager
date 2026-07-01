@@ -65,11 +65,24 @@ def build_main(argv=None):
     parser.add_argument("variant", help="The profile/variant to deploy (e.g. lost_legacy_2).")
     parser.add_argument("--remove", action="store_true",
                         help="Remove the symlinks instead of deploying.")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Preview the deploy without touching the filesystem "
+                             "(also skips the mutating format/audit stages).")
+    parser.add_argument("--backup", action="store_true",
+                        help="Rename a blocking real file aside (<name>.<timestamp>.bak) instead of skipping it.")
+    parser.add_argument("--platform", default=None,
+                        help="Override the detected platform (windows/macos/linux) for link selection.")
+    parser.add_argument("--host", default=None,
+                        help="Override the detected hostname for link selection.")
     _add_repo_root(parser)
     args = parser.parse_args(argv)
 
     try:
-        run_pipeline(args.variant, is_removal=args.remove, repo_root=_repo_root(args))
+        run_pipeline(
+            args.variant, is_removal=args.remove, repo_root=_repo_root(args),
+            dry_run=args.dry_run, backup=args.backup,
+            platform_override=args.platform, host_override=args.host,
+        )
     except SymlinkPermissionError as e:
         print(f"\n[!] FATAL: {e}")
         sys.exit(1)
@@ -153,4 +166,8 @@ def maintain_main(argv=None):
     _add_repo_root(parser)
     args = parser.parse_args(argv)
 
-    run_maintenance(_repo_root(args) / args.source_root)
+    try:
+        run_maintenance(_repo_root(args) / args.source_root)
+    except ConfigError as e:
+        print(f"\n[!] FATAL: {e}")
+        sys.exit(1)
