@@ -10,8 +10,8 @@ from enum import Enum, auto
 from pathlib import Path
 
 from .config import ConfigError, load_config, select_variant
-from .profiles import get_profile_type, current_host_context, warn_unknown_keys
-from .deploy import safely_create_symlink, DeployStatus, warn_duplicate_targets
+from .deploy import DeployStatus, safely_create_symlink, warn_duplicate_targets
+from .profiles import current_host_context, get_profile_type, warn_unknown_keys
 
 
 class AdoptStatus(Enum):

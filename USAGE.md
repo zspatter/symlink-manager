@@ -85,12 +85,20 @@ lint. States: **Linked**, **Not deployed**, **Broken** (dangling symlink),
 
 | Flag | Effect |
 | --- | --- |
+| `--json` | Emit the report as a JSON object on stdout (diagnostics go to stderr). |
 | `--platform <p>` / `--host <h>` | Inspect the selection for another host. |
 | `--repo-root <path>` | Act on this repo root. |
+
+Exit status is `0` when every link is OK or simply not deployed, and `1` when
+any link is broken/wrong-target/blocked/missing-source or two sources collide on
+one target - so `symlink-status` doubles as a CI health gate. With `--json`,
+stdout carries only the report (`variant`, `type`, `platform`, `host`, `ok`,
+`counts`, `links`, `conflicts`), making it easy to consume from scripts.
 
 ```bash
 symlink-status dotfiles                  # what's linked / missing / broken here
 symlink-status dotfiles --platform macos # what a mac would resolve
+symlink-status dotfiles --json | jq .ok  # machine-readable; false if anything is wrong
 ```
 
 ## `symlink-adopt <profile>`

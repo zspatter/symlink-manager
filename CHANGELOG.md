@@ -15,6 +15,11 @@ All notable changes to this project are documented here. This project adheres to
   object (a clear error otherwise, instead of a confusing downstream failure),
   and commands warn on unrecognized profile keys to catch typos (e.g.
   `targett_dir`). Unknown keys are ignored, not fatal.
+- `symlink-status --json` emits the report as a single JSON object on stdout
+  (`ok`, `counts`, `links`, `conflicts`, …) with diagnostics routed to stderr,
+  so status is easy to consume from scripts/CI. The exit code is unchanged.
+- Linting/typing: `ruff` and `mypy` configured (`pip install -e ".[lint]"`) and
+  run as a CI job.
 
 ### Changed
 

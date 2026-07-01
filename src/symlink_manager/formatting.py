@@ -50,7 +50,7 @@ def archive_file(file_path, base_dir, archive_root, timestamp):
 def process_single_file(file_path, base_dir, archive_root, timestamp, formatter):
     """Reads, formats, checks idempotency, and safely handles OS errors."""
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
+        with open(file_path, encoding='utf-8') as f:
             original_text = f.read()
 
         new_text = formatter.format(original_text)

@@ -6,7 +6,7 @@ Dev-Mode Windows box) and skip where the privilege is unavailable.
 import json
 import os
 
-from symlink_manager.cli import deploy_main, status_main, adopt_main
+from symlink_manager.cli import adopt_main, deploy_main, status_main
 
 
 def _write_config(tmp_path, links):

@@ -5,7 +5,6 @@ import os
 from symlink_manager import deploy
 from symlink_manager.adopt import AdoptStatus, adopt_link, run_adopt
 
-
 # ---------------------------------------------------------------------------
 # adopt_link
 # ---------------------------------------------------------------------------

@@ -10,7 +10,7 @@ from pathlib import Path
 
 from .adopt import run_adopt
 from .config import ConfigError, load_config, select_variant
-from .deploy import execute_deployment, SymlinkPermissionError
+from .deploy import SymlinkPermissionError, execute_deployment
 from .formatting import format_tree
 from .maintain import run_maintenance
 from .pipeline import run_pipeline
@@ -144,6 +144,8 @@ def status_main(argv=None):
     parser = argparse.ArgumentParser(
         prog="symlink-status", description="Report the current state of a profile's links (read-only).")
     parser.add_argument("variant", help="The profile/variant to inspect (e.g. dotfiles).")
+    parser.add_argument("--json", action="store_true", dest="as_json",
+                        help="Emit the report as JSON on stdout (diagnostics go to stderr).")
     parser.add_argument("--platform", default=None,
                         help="Override the detected platform (windows/macos/linux) for link selection.")
     parser.add_argument("--host", default=None,
@@ -152,7 +154,8 @@ def status_main(argv=None):
     args = parser.parse_args(argv)
 
     code = run_status(args.variant, repo_root=_repo_root(args),
-                      platform_override=args.platform, host_override=args.host)
+                      platform_override=args.platform, host_override=args.host,
+                      as_json=args.as_json)
     if code:
         sys.exit(code)
 

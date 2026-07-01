@@ -9,9 +9,9 @@ consumes identically.
 import os
 import platform
 import sys
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Callable
 
 from .config import ConfigError, load_json
 from .formatters import FORMATTERS, Formatter

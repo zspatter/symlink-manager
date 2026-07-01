@@ -152,7 +152,15 @@ pip install -e ".[test]"   # editable install + test extra, from symlink-manager
 python -m pytest
 ```
 
-Symlink-creation tests self-skip when the host lacks the privilege (Windows without Developer Mode / admin); every other test runs unconditionally.
+Symlink-creation tests self-skip when the host lacks the privilege (Windows without Developer Mode / admin); every other test runs unconditionally. To run the full suite locally on Windows, enable **Developer Mode** (Settings → System → For developers) or run from an elevated shell; CI runs them on both Linux and Windows.
+
+Linting and type-checking use `ruff` and `mypy`, wired into CI:
+
+```bash
+pip install -e ".[lint]"   # editable install + lint extra
+python -m ruff check src tests
+python -m mypy src
+```
 
 ## License
 

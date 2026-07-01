@@ -7,10 +7,11 @@ import sys
 from pathlib import Path
 
 from .config import ConfigError, load_config, select_variant
-from .profiles import get_profile_type, profile_base
+from .deploy import execute_deployment
 from .formatting import format_tree
 from .maintain import run_maintenance
-from .deploy import execute_deployment
+from .profiles import get_profile_type, profile_base
+
 
 def check_configuration(variant_key, repo_root):
     """Fail-fast configuration check before the pipeline runs. Returns the profile."""

@@ -1,22 +1,20 @@
 """Unit tests for profile types: source gathering, link resolvers, registry."""
 import json
-import os
-from pathlib import Path
 
 import pytest
 
 from symlink_manager.config import ConfigError
 from symlink_manager.formatters import IdentityFormatter, SkyrimBatchFormatter
 from symlink_manager.profiles import (
-    gather_sources,
-    profile_base,
-    resolve_skyrim,
-    resolve_dotfiles,
-    get_profile_type,
-    warn_unknown_keys,
     HostContext,
     current_host_context,
+    gather_sources,
+    get_profile_type,
     normalize_platform,
+    profile_base,
+    resolve_dotfiles,
+    resolve_skyrim,
+    warn_unknown_keys,
 )
 
 

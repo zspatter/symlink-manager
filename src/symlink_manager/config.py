@@ -1,6 +1,7 @@
 """Loading and validation of the master ``config.json``."""
 import json
 
+
 class ConfigError(Exception):
     """Raised when config.json is missing or does not define the variant."""
 
@@ -11,7 +12,7 @@ def load_json(path, description):
     Keeps a malformed file from surfacing as a bare JSONDecodeError traceback.
     """
     try:
-        with open(path, 'r', encoding='utf-8') as f:
+        with open(path, encoding='utf-8') as f:
             return json.load(f)
     except json.JSONDecodeError as e:
         raise ConfigError(f"{description} is not valid JSON ({path}): {e}") from e

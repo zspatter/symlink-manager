@@ -2,9 +2,7 @@
 import json
 import os
 
-from symlink_manager import status
 from symlink_manager.status import LinkState, link_status, run_status
-
 
 # ---------------------------------------------------------------------------
 # link_status
@@ -99,3 +97,65 @@ class TestRunStatus:
 
         assert run_status("home", repo_root=tmp_path) == 1
         assert "CONFLICT" in capsys.readouterr().out
+
+
+class TestRunStatusJson:
+    def _clean_repo(self, tmp_path):
+        (tmp_path / "dotfiles").mkdir()
+        (tmp_path / "dotfiles" / "rc").write_text("x")
+        out = tmp_path / "out"
+        out.mkdir()
+        config = {"home": {"type": "dotfiles", "links": {"dotfiles/rc": str(out / "rc")}}}
+        (tmp_path / "config.json").write_text(json.dumps(config), encoding="utf-8")
+        return out
+
+    def test_emits_valid_json_document(self, tmp_path, capsys):
+        self._clean_repo(tmp_path)
+        code = run_status("home", repo_root=tmp_path, as_json=True)
+        assert code == 0
+        doc = json.loads(capsys.readouterr().out)  # stdout is pure, parseable JSON
+        assert doc["variant"] == "home" and doc["type"] == "dotfiles"
+        assert doc["ok"] is True
+        assert doc["counts"]["MISSING"] == 1
+        assert doc["links"] == [{
+            "source": str(tmp_path / "dotfiles" / "rc"),
+            "target": str(tmp_path / "out" / "rc"),
+            "state": "MISSING",
+        }]
+        assert doc["conflicts"] == []
+
+    def test_conflict_sets_ok_false_and_exit_1(self, tmp_path, capsys):
+        (tmp_path / "dotfiles").mkdir()
+        (tmp_path / "dotfiles" / "a").write_text("x")
+        (tmp_path / "dotfiles" / "b").write_text("x")
+        out = tmp_path / "out"
+        out.mkdir()
+        shared = str(out / "shared")
+        config = {"home": {"type": "dotfiles", "links": {"dotfiles/a": shared, "dotfiles/b": shared}}}
+        (tmp_path / "config.json").write_text(json.dumps(config), encoding="utf-8")
+
+        code = run_status("home", repo_root=tmp_path, as_json=True)
+        assert code == 1
+        doc = json.loads(capsys.readouterr().out)
+        assert doc["ok"] is False
+        assert len(doc["conflicts"]) == 1 and len(doc["conflicts"][0]["sources"]) == 2
+
+    def test_diagnostics_go_to_stderr_keeping_stdout_pure(self, tmp_path, capsys):
+        out = self._clean_repo(tmp_path)
+        # Re-write config with an unknown key so a warning is emitted during resolve.
+        config = {"home": {"type": "dotfiles",
+                           "links": {"dotfiles/rc": str(out / "rc")}, "typo": 1}}
+        (tmp_path / "config.json").write_text(json.dumps(config), encoding="utf-8")
+
+        run_status("home", repo_root=tmp_path, as_json=True)
+
+        captured = capsys.readouterr()
+        json.loads(captured.out)                              # stdout still parses cleanly
+        assert "unrecognized key 'typo'" in captured.err      # warning routed to stderr
+
+    def test_config_error_emits_json_error(self, tmp_path, capsys):
+        (tmp_path / "config.json").write_text("{}", encoding="utf-8")
+        code = run_status("ghost", repo_root=tmp_path, as_json=True)
+        assert code == 1
+        doc = json.loads(capsys.readouterr().out)
+        assert doc["variant"] == "ghost" and "error" in doc

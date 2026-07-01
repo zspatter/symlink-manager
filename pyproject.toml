@@ -14,6 +14,7 @@ dependencies = []            # zero third-party runtime dependencies (stdlib onl
 
 [project.optional-dependencies]
 test = ["pytest>=7.0", "hypothesis>=6.0"]
+lint = ["ruff>=0.5", "mypy>=1.8"]
 
 [project.scripts]
 symlink-build = "symlink_manager.cli:build_main"
@@ -28,3 +29,19 @@ packages = ["src/symlink_manager"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+
+[tool.ruff.lint]
+# pycodestyle errors/warnings, pyflakes, isort, pyupgrade, flake8-bugbear.
+select = ["E", "F", "W", "I", "UP", "B"]
+# Line length is not enforced: several files use long, intentionally unwrapped
+# descriptive strings (e.g. audit/help messages). Every other E rule applies.
+ignore = ["E501"]
+
+[tool.mypy]
+files = ["src"]
+python_version = "3.10"
+ignore_missing_imports = true

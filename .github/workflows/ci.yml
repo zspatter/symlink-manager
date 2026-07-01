@@ -5,6 +5,21 @@ on:
   pull_request:
 
 jobs:
+  lint:
+    name: lint (ruff + mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install (editable + lint extra)
+        run: pip install -e ".[lint]"
+      - name: Ruff
+        run: python -m ruff check src tests
+      - name: Mypy
+        run: python -m mypy src
+
   test:
     name: pytest (${{ matrix.os }}, py${{ matrix.python-version }})
     runs-on: ${{ matrix.os }}

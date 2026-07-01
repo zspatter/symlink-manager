@@ -5,8 +5,8 @@ Compares ``manifest.json`` (the declared routing table) against the physical
 Skyrim/variants repo layout; the build pipeline only runs it for profile types
 that opt into it.
 """
-from pathlib import Path
 from collections import defaultdict
+from pathlib import Path
 
 from .config import load_json
 

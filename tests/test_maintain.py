@@ -6,7 +6,6 @@ import pytest
 from symlink_manager import maintain as maint
 from symlink_manager.config import ConfigError
 
-
 # ---------------------------------------------------------------------------
 # Filesystem scanners
 # ---------------------------------------------------------------------------

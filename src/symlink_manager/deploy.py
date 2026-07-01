@@ -5,11 +5,11 @@ drives them through the idempotent, real-file-protecting symlink primitives.
 """
 import os
 from datetime import datetime
-from pathlib import Path
 from enum import Enum, auto
+from pathlib import Path
 
 from .config import ConfigError, load_config, select_variant
-from .profiles import get_profile_type, current_host_context, warn_unknown_keys
+from .profiles import current_host_context, get_profile_type, warn_unknown_keys
 
 # ==============================================================================
 # Constants

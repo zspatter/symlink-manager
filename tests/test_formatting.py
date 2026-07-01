@@ -2,7 +2,6 @@
 from symlink_manager import formatting
 from symlink_manager.formatters import SkyrimBatchFormatter
 
-
 # ---------------------------------------------------------------------------
 # is_critical_error (error-severity routing)
 # ---------------------------------------------------------------------------

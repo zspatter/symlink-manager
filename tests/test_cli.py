@@ -9,12 +9,12 @@ import pytest
 
 from symlink_manager import deploy
 from symlink_manager.cli import (
-    deploy_main,
-    status_main,
     adopt_main,
-    format_main,
     build_main,
+    deploy_main,
+    format_main,
     maintain_main,
+    status_main,
 )
 
 
@@ -172,6 +172,21 @@ class TestExitCodes:
     def test_status_not_deployed_exits_0(self, tmp_path):
         _dotfiles_repo(tmp_path)  # sources present, nothing deployed -> not a problem
         status_main(["home", "--repo-root", str(tmp_path)])  # no raise == exit 0
+
+    def test_status_json_clean_exits_0_with_parseable_output(self, tmp_path, capsys):
+        _dotfiles_repo(tmp_path)
+        status_main(["home", "--json", "--repo-root", str(tmp_path)])  # exit 0, no raise
+        doc = json.loads(capsys.readouterr().out)
+        assert doc["variant"] == "home" and doc["ok"] is True
+
+    def test_status_json_problem_exits_1_but_emits_json(self, tmp_path, capsys):
+        _dotfiles_repo(tmp_path)
+        (tmp_path / "out" / "common").write_text("real")  # blocks a universal link
+        with pytest.raises(SystemExit) as exc:
+            status_main(["home", "--json", "--repo-root", str(tmp_path)])
+        assert exc.value.code == 1
+        doc = json.loads(capsys.readouterr().out)
+        assert doc["ok"] is False
 
     def test_malformed_config_exits_1(self, tmp_path, capsys):
         (tmp_path / "config.json").write_text("{ not valid json", encoding="utf-8")

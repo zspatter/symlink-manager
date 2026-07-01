@@ -1,6 +1,6 @@
 """Unit tests for the pure Skyrim-batch transforms and the formatter wrappers."""
-from symlink_manager.formatters import skyrim_batch as fmt
 from symlink_manager.formatters import IdentityFormatter, SkyrimBatchFormatter
+from symlink_manager.formatters import skyrim_batch as fmt
 
 EMPTY_HEADER = "; " + "=" * (fmt.HEADER_WIDTH - 2)
 

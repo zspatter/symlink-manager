@@ -3,9 +3,10 @@
 Fuzzes the formatter to assert two invariants: it never raises on arbitrary
 input, and formatting is idempotent (a formatted file reformats to itself).
 """
-from hypothesis import given, settings, strategies as st
+from hypothesis import given, settings
+from hypothesis import strategies as st
 
-from symlink_manager.formatters.skyrim_batch import process_lines, SkyrimBatchFormatter
+from symlink_manager.formatters.skyrim_batch import SkyrimBatchFormatter, process_lines
 
 # Realistic batch-ish lines: printable ASCII (no embedded line breaks), salted
 # with samples that hit the formatter's branches (commands, headers, comments).

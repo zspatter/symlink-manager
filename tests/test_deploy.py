@@ -7,15 +7,14 @@ import pytest
 from symlink_manager import deploy
 from symlink_manager.deploy import (
     DeployStatus,
-    safely_create_symlink,
-    safely_remove_symlink,
-    process_link_queue,
-    execute_deployment,
     build_smart_summary,
     duplicate_targets,
+    execute_deployment,
+    process_link_queue,
+    safely_create_symlink,
+    safely_remove_symlink,
     warn_duplicate_targets,
 )
-
 
 # ---------------------------------------------------------------------------
 # Symlink helpers
@@ -245,10 +244,13 @@ class TestDryRun:
         assert target.is_symlink()  # still there
 
     def test_process_link_queue_dry_run_previews_without_mutation(self, tmp_path):
-        fresh_src = tmp_path / "a.txt"; fresh_src.write_text("x")
+        fresh_src = tmp_path / "a.txt"
+        fresh_src.write_text("x")
         fresh_tgt = tmp_path / "a_link.txt"
-        real_src = tmp_path / "b.txt"; real_src.write_text("x")
-        real_tgt = tmp_path / "b_link.txt"; real_tgt.write_text("real")
+        real_src = tmp_path / "b.txt"
+        real_src.write_text("x")
+        real_tgt = tmp_path / "b_link.txt"
+        real_tgt.write_text("real")
         missing_src = tmp_path / "missing.txt"
         missing_tgt = tmp_path / "m_link.txt"
         specs = [(fresh_src, fresh_tgt), (real_src, real_tgt), (missing_src, missing_tgt)]
