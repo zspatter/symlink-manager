@@ -9,7 +9,7 @@ from pathlib import Path
 from enum import Enum, auto
 
 from .config import ConfigError, load_config, select_variant
-from .profiles import get_profile_type, current_host_context
+from .profiles import get_profile_type, current_host_context, warn_unknown_keys
 
 # ==============================================================================
 # Constants
@@ -224,6 +224,7 @@ def execute_deployment(variant_key, is_removal=False, repo_root=None,
         master_config = load_config(repo_root)
         profile = select_variant(master_config, variant_key)
         profile_type = get_profile_type(profile)
+        warn_unknown_keys(profile, profile_type, variant_key)
         link_specs = profile_type.resolve_links(profile, variant_key, repo_root, context)
     except ConfigError as e:
         print(f"  [!] ERROR: {e}")

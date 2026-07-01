@@ -9,7 +9,7 @@ from pathlib import Path
 
 from .config import ConfigError, load_config, select_variant
 from .deploy import warn_duplicate_targets
-from .profiles import get_profile_type, current_host_context
+from .profiles import get_profile_type, current_host_context, warn_unknown_keys
 
 
 class LinkState(Enum):
@@ -96,6 +96,7 @@ def run_status(variant_key, repo_root=None, platform_override=None, host_overrid
         master_config = load_config(repo_root)
         profile = select_variant(master_config, variant_key)
         profile_type = get_profile_type(profile)
+        warn_unknown_keys(profile, profile_type, variant_key)
         link_specs = profile_type.resolve_links(profile, variant_key, repo_root, context)
     except ConfigError as e:
         print(f"  [!] ERROR: {e}")

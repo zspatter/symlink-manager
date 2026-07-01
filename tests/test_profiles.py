@@ -13,6 +13,7 @@ from symlink_manager.profiles import (
     resolve_skyrim,
     resolve_dotfiles,
     get_profile_type,
+    warn_unknown_keys,
     HostContext,
     current_host_context,
     normalize_platform,
@@ -288,3 +289,28 @@ class TestGetProfileType:
     def test_unknown_type_raises(self):
         with pytest.raises(ConfigError, match="Unknown profile type"):
             get_profile_type({"type": "bogus"})
+
+
+# ---------------------------------------------------------------------------
+# warn_unknown_keys (typo detection)
+# ---------------------------------------------------------------------------
+
+class TestWarnUnknownKeys:
+    def test_flags_unrecognized_key(self, capsys):
+        dotfiles = get_profile_type({"type": "dotfiles"})
+        profile = {"type": "dotfiles", "links": {}, "target_dr": "typo"}
+        unknown = warn_unknown_keys(profile, dotfiles, "home")
+        assert unknown == {"target_dr"}
+        assert "unrecognized key 'target_dr'" in capsys.readouterr().out
+
+    def test_clean_profile_is_silent(self, capsys):
+        skyrim = get_profile_type({})  # defaults to skyrim_batch
+        profile = {"type": "skyrim_batch", "source_root": "skyrim", "target_dir": "D:/x",
+                   "include_core": True, "include_builds": True, "variant_folder": "variants/x"}
+        assert warn_unknown_keys(profile, skyrim, "nolvus") == set()
+        assert capsys.readouterr().out == ""
+
+    def test_dotfiles_does_not_recognize_skyrim_keys(self, capsys):
+        dotfiles = get_profile_type({"type": "dotfiles"})
+        # source_root does nothing for dotfiles, so it should be flagged.
+        assert warn_unknown_keys({"type": "dotfiles", "source_root": "x"}, dotfiles, "home") == {"source_root"}

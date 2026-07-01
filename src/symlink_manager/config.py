@@ -24,7 +24,15 @@ def load_config(repo_root):
     return load_json(config_path, "config.json")
 
 def select_variant(master_config, variant_key):
-    """Returns the config block for a single variant, raising if undefined."""
+    """Returns the config block for a single variant, raising if malformed or undefined."""
+    if not isinstance(master_config, dict):
+        raise ConfigError(
+            "config.json must be a JSON object mapping profile names to their settings, "
+            f"got {type(master_config).__name__}.")
     if variant_key not in master_config:
         raise ConfigError(f"Variant '{variant_key}' is not defined in config.json.")
-    return master_config[variant_key]
+    profile = master_config[variant_key]
+    if not isinstance(profile, dict):
+        raise ConfigError(
+            f"Profile '{variant_key}' must be a JSON object, got {type(profile).__name__}.")
+    return profile

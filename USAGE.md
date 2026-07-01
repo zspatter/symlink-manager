@@ -27,6 +27,10 @@ Every command runs from the root of your parent repository (or pass
 - **Target conflicts** - if two sources resolve to the same target, `deploy`,
   `adopt`, and `status` print a `CONFLICT` warning. `deploy` is last-writer-wins;
   `status` treats a conflict as a failure (non-zero exit).
+- **Config validation** - `config.json` and each profile must be a JSON object
+  (otherwise the command fails with a clear message), and a profile key the
+  active type doesn't recognize (e.g. a misspelled `target_dir`) prints a
+  warning. Unrecognized keys are ignored, never fatal.
 
 `deploy`, `status`, and `adopt` work on any profile. `format`, `audit`, and
 `build` only do anything for *formatting* profile types (`skyrim_batch` today):

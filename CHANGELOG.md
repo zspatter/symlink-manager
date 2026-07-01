@@ -11,6 +11,10 @@ All notable changes to this project are documented here. This project adheres to
   (previously only `--remove`), so the full pipeline can be previewed and
   simulated for other hosts. A dry run skips the mutating format/audit stages and
   previews the deploy only.
+- Profile schema validation: `config.json` and each profile must be a JSON
+  object (a clear error otherwise, instead of a confusing downstream failure),
+  and commands warn on unrecognized profile keys to catch typos (e.g.
+  `targett_dir`). Unknown keys are ignored, not fatal.
 
 ### Changed
 

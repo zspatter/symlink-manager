@@ -33,3 +33,11 @@ class TestSelectVariant:
     def test_unknown_variant_raises(self):
         with pytest.raises(ConfigError, match="not defined"):
             select_variant({"nolvus": {}}, "ghost")
+
+    def test_non_dict_config_raises(self):
+        with pytest.raises(ConfigError, match="must be a JSON object"):
+            select_variant(["not", "a", "mapping"], "home")
+
+    def test_non_dict_profile_raises(self):
+        with pytest.raises(ConfigError, match="Profile 'home' must be a JSON object"):
+            select_variant({"home": "oops-a-string"}, "home")

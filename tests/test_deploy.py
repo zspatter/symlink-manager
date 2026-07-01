@@ -341,6 +341,20 @@ class TestExecuteDeploymentIntegration:
         out_text = capsys.readouterr().out
         assert "WARNING" in out_text and "override" in out_text
 
+    def test_warns_on_unknown_profile_key(self, tmp_path, capsys):
+        (tmp_path / "dotfiles").mkdir()
+        (tmp_path / "dotfiles" / "rc").write_text("x")
+        out = tmp_path / "out"
+        out.mkdir()
+        config = {"home": {"type": "dotfiles",
+                           "links": {"dotfiles/rc": str(out / "rc")},
+                           "targett_dir": "typo"}}  # misspelled/irrelevant key
+        (tmp_path / "config.json").write_text(json.dumps(config), encoding="utf-8")
+
+        execute_deployment("home", repo_root=tmp_path, dry_run=True)
+
+        assert "unrecognized key 'targett_dir'" in capsys.readouterr().out
+
 
 class TestExecuteDeploymentExitCode:
     def _config(self, tmp_path, target):

@@ -10,7 +10,7 @@ from enum import Enum, auto
 from pathlib import Path
 
 from .config import ConfigError, load_config, select_variant
-from .profiles import get_profile_type, current_host_context
+from .profiles import get_profile_type, current_host_context, warn_unknown_keys
 from .deploy import safely_create_symlink, DeployStatus, warn_duplicate_targets
 
 
@@ -78,6 +78,7 @@ def run_adopt(variant_key, repo_root=None, dry_run=False, platform_override=None
         master_config = load_config(repo_root)
         profile = select_variant(master_config, variant_key)
         profile_type = get_profile_type(profile)
+        warn_unknown_keys(profile, profile_type, variant_key)
         link_specs = profile_type.resolve_links(profile, variant_key, repo_root, context)
     except ConfigError as e:
         print(f"  [!] ERROR: {e}")

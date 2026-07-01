@@ -175,10 +175,18 @@ class ProfileType:
     formatter: Formatter
     resolve_links: Callable[..., list]  # (profile, variant_key, repo_root, context) -> [LinkSpec]
     formats: bool  # whether the build pipeline runs the format stage for this type
+    known_keys: frozenset  # config keys this type recognizes (for typo detection)
 
 PROFILE_TYPES = {
-    "skyrim_batch": ProfileType(FORMATTERS["skyrim_batch"], resolve_skyrim, formats=True),
-    "dotfiles": ProfileType(FORMATTERS["identity"], resolve_dotfiles, formats=False),
+    "skyrim_batch": ProfileType(
+        FORMATTERS["skyrim_batch"], resolve_skyrim, formats=True,
+        known_keys=frozenset({
+            "type", "source_root", "target_dir",
+            "include_core", "include_builds", "variant_folder",
+        })),
+    "dotfiles": ProfileType(
+        FORMATTERS["identity"], resolve_dotfiles, formats=False,
+        known_keys=frozenset({"type", "links"})),
 }
 
 def get_profile_type(profile):
@@ -188,3 +196,15 @@ def get_profile_type(profile):
         known = ", ".join(sorted(PROFILE_TYPES))
         raise ConfigError(f"Unknown profile type '{name}'. Known types: {known}.")
     return PROFILE_TYPES[name]
+
+def warn_unknown_keys(profile, profile_type, variant_key):
+    """Prints a warning for each profile key the type doesn't recognize (typos).
+
+    Returns the set of unknown keys. Unknown keys are ignored, not fatal, so a
+    forward-compatible config still deploys.
+    """
+    unknown = set(profile) - profile_type.known_keys
+    for key in sorted(unknown):
+        print(f"  [!] WARNING: profile '{variant_key}' has an unrecognized key "
+              f"'{key}' (ignored).")
+    return unknown
