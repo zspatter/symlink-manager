@@ -43,7 +43,6 @@ All notable changes to this project are documented here. This project adheres to
 
 - Removal now surfaces the OS error message when a symlink can't be unlinked,
   instead of silently counting it in the summary only.
-
 - **Exit codes**: `symlink-deploy`, `symlink-adopt`, `symlink-status`, and
   `symlink-build` now exit non-zero when configuration fails or a link ends in an
   error state, so scripts and CI can gate on them. Previously a failed run still
