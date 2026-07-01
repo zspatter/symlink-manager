@@ -5,7 +5,7 @@ import os
 import pytest
 
 from symlink_manager import status
-from symlink_manager.status import LinkState, link_status, duplicate_targets, run_status
+from symlink_manager.status import LinkState, link_status, run_status
 
 
 @pytest.fixture
@@ -62,26 +62,6 @@ class TestLinkState:
         target = tmp_path / "t.txt"
         os.symlink(tmp_path / "ghost", target)  # dangling
         assert link_status(source, target) == LinkState.BROKEN
-
-
-# ---------------------------------------------------------------------------
-# duplicate_targets
-# ---------------------------------------------------------------------------
-
-class TestDuplicateTargets:
-    def test_detects_collision(self, tmp_path):
-        specs = [
-            (tmp_path / "a", tmp_path / "out"),
-            (tmp_path / "b", tmp_path / "out"),
-            (tmp_path / "c", tmp_path / "elsewhere"),
-        ]
-        dups = duplicate_targets(specs)
-        assert list(dups) == [tmp_path / "out"]
-        assert {s.name for s in dups[tmp_path / "out"]} == {"a", "b"}
-
-    def test_no_collision(self, tmp_path):
-        specs = [(tmp_path / "a", tmp_path / "x"), (tmp_path / "b", tmp_path / "y")]
-        assert duplicate_targets(specs) == {}
 
 
 # ---------------------------------------------------------------------------

@@ -8,6 +8,7 @@ from enum import Enum, auto
 from pathlib import Path
 
 from .config import ConfigError, load_config, select_variant
+from .deploy import warn_duplicate_targets
 from .profiles import get_profile_type, current_host_context
 
 
@@ -68,14 +69,6 @@ def link_status(source_path, target_path):
     return LinkState.MISSING
 
 
-def duplicate_targets(link_specs):
-    """Maps each target hit by more than one source to the offending sources."""
-    by_target = {}
-    for source, target in link_specs:
-        by_target.setdefault(target, []).append(source)
-    return {target: sources for target, sources in by_target.items() if len(sources) > 1}
-
-
 def _summary(stats):
     border = "-" * 50
     lines = ["", border, " STATUS SUMMARY".center(50), border]
@@ -118,12 +111,7 @@ def run_status(variant_key, repo_root=None, platform_override=None, host_overrid
         stats[state] += 1
         print(f"  {STATE_GLYPHS[state]} {STATE_LABELS[state]:<20} {target}")
 
-    conflicts = duplicate_targets(link_specs)
-    if conflicts:
-        print()
-        for target, sources in conflicts.items():
-            names = ", ".join(s.name for s in sources)
-            print(f"  [!] CONFLICT: multiple sources link to {target} ({names})")
+    conflicts = warn_duplicate_targets(link_specs, blank_line_before=True)
 
     print(_summary(stats))
     problems = any(stats[state] for state in PROBLEM_STATES) or bool(conflicts)

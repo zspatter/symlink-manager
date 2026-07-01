@@ -19,6 +19,14 @@ Every command runs from the root of your parent repository (or pass
   target; it reports it as *protected* and skips it. `--backup` overrides this.
 - **Missing parents** - a target's parent directories are created automatically
   on deploy (e.g. `~/.config/nvim/`).
+- **Teardown scope** - `--remove` deletes whatever *symlink* currently occupies a
+  managed target, including a stale one that points elsewhere (so renaming a
+  source and tearing down again still cleans up). Real files are always protected
+  and left in place, so a symlink you placed by hand at a managed path will be
+  removed - keep unrelated links out of your configured target paths.
+- **Target conflicts** - if two sources resolve to the same target, `deploy`,
+  `adopt`, and `status` print a `CONFLICT` warning. `deploy` is last-writer-wins;
+  `status` treats a conflict as a failure (non-zero exit).
 
 `deploy`, `status`, and `adopt` work on any profile. `format`, `audit`, and
 `build` only do anything for *formatting* profile types (`skyrim_batch` today):

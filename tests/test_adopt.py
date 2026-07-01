@@ -88,3 +88,18 @@ class TestRunAdopt:
         (tmp_path / "config.json").write_text(json.dumps({"home": {"type": "dotfiles", "links": {}}}), encoding="utf-8")
         run_adopt("ghost", repo_root=tmp_path)
         assert "ERROR" in capsys.readouterr().out
+
+    def test_warns_on_conflicting_targets(self, tmp_path, monkeypatch, capsys):
+        monkeypatch.setattr(deploy.os, "symlink", lambda s, d, **kw: None)
+        (tmp_path / "out").mkdir()
+        (tmp_path / "out" / "shared").write_text("machine")
+        shared = str(tmp_path / "out" / "shared")  # two sources capture one target
+        config = {"home": {"type": "dotfiles", "links": {
+            "dotfiles/a": shared,
+            "dotfiles/b": shared,
+        }}}
+        (tmp_path / "config.json").write_text(json.dumps(config), encoding="utf-8")
+
+        run_adopt("home", repo_root=tmp_path)
+
+        assert "CONFLICT" in capsys.readouterr().out

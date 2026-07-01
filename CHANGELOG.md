@@ -19,8 +19,17 @@ All notable changes to this project are documented here. This project adheres to
   to match the exact case.
 - A malformed `config.json` or `manifest.json` now reports a clean error (and a
   non-zero exit) instead of a raw `JSONDecodeError` traceback.
+- `deploy` and `adopt` now run the duplicate-target lint that `status` already
+  had: when two sources resolve to one target, they print a `CONFLICT` warning
+  before acting (`deploy` remains last-writer-wins). The lint now lives in the
+  engine and is shared by all three commands.
+- Documented teardown scope: `--remove` deletes whatever symlink occupies a
+  managed target (real files stay protected). See USAGE.md.
 
 ### Fixed
+
+- Removal now surfaces the OS error message when a symlink can't be unlinked,
+  instead of silently counting it in the summary only.
 
 - **Exit codes**: `symlink-deploy`, `symlink-adopt`, `symlink-status`, and
   `symlink-build` now exit non-zero when configuration fails or a link ends in an

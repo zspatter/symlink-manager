@@ -11,7 +11,7 @@ from pathlib import Path
 
 from .config import ConfigError, load_config, select_variant
 from .profiles import get_profile_type, current_host_context
-from .deploy import safely_create_symlink, DeployStatus
+from .deploy import safely_create_symlink, DeployStatus, warn_duplicate_targets
 
 
 class AdoptStatus(Enum):
@@ -88,6 +88,8 @@ def run_adopt(variant_key, repo_root=None, dry_run=False, platform_override=None
     type_name = profile.get("type", "skyrim_batch")
     print(f"  [*] Adopt: {variant_key} ({type_name}) - {len(link_specs)} link(s) "
           f"[{context.platform}/{context.host}]\n")
+
+    warn_duplicate_targets(link_specs)  # two sources capturing one target is ambiguous
 
     stats = {state: 0 for state in AdoptStatus}
     verb = "would adopt" if dry_run else "adopted"

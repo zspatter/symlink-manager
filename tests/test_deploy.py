@@ -1,6 +1,7 @@
 """Unit tests for the symlink engine: link helpers, summary, error translation."""
 import json
 import os
+from pathlib import Path
 
 import pytest
 
@@ -12,6 +13,8 @@ from symlink_manager.deploy import (
     process_link_queue,
     execute_deployment,
     build_smart_summary,
+    duplicate_targets,
+    warn_duplicate_targets,
 )
 
 
@@ -140,10 +143,51 @@ class TestSafelyRemoveSymlink:
     def test_missing_target(self, tmp_path):
         assert safely_remove_symlink(tmp_path / "nope.txt") == DeployStatus.NOT_FOUND
 
+    def test_os_error_is_surfaced(self, tmp_path, monkeypatch, capsys):
+        # A failed unlink must report its reason, not vanish into the summary tally.
+        target = tmp_path / "link.txt"
+        monkeypatch.setattr(Path, "is_symlink", lambda self: True)  # pose as a symlink
+
+        def boom(self, *args, **kwargs):
+            raise OSError("device busy")
+
+        monkeypatch.setattr(Path, "unlink", boom)
+        assert safely_remove_symlink(target) == DeployStatus.ERROR_OS
+        out = capsys.readouterr().out
+        assert "device busy" in out and str(target) in out
+
 
 # ---------------------------------------------------------------------------
 # Summary rendering
 # ---------------------------------------------------------------------------
+
+class TestDuplicateTargets:
+    def test_detects_collision(self, tmp_path):
+        specs = [
+            (tmp_path / "a", tmp_path / "out"),
+            (tmp_path / "b", tmp_path / "out"),
+            (tmp_path / "c", tmp_path / "elsewhere"),
+        ]
+        dups = duplicate_targets(specs)
+        assert list(dups) == [tmp_path / "out"]
+        assert {s.name for s in dups[tmp_path / "out"]} == {"a", "b"}
+
+    def test_no_collision(self, tmp_path):
+        specs = [(tmp_path / "a", tmp_path / "x"), (tmp_path / "b", tmp_path / "y")]
+        assert duplicate_targets(specs) == {}
+
+    def test_warn_prints_and_returns_conflicts(self, tmp_path, capsys):
+        specs = [(tmp_path / "a", tmp_path / "out"), (tmp_path / "b", tmp_path / "out")]
+        conflicts = warn_duplicate_targets(specs)
+        out = capsys.readouterr().out
+        assert "CONFLICT" in out and "a" in out and "b" in out
+        assert list(conflicts) == [tmp_path / "out"]
+
+    def test_warn_silent_when_no_conflict(self, tmp_path, capsys):
+        specs = [(tmp_path / "a", tmp_path / "x")]
+        assert warn_duplicate_targets(specs) == {}
+        assert capsys.readouterr().out == ""
+
 
 class TestBuildSmartSummary:
     def test_shows_only_nonzero_statuses(self):
@@ -261,6 +305,24 @@ class TestExecuteDeploymentIntegration:
         (tmp_path / "config.json").write_text(json.dumps({"home": {"type": "dotfiles", "links": {}}}), encoding="utf-8")
         assert execute_deployment("ghost", repo_root=tmp_path) == 1
         assert "ERROR" in capsys.readouterr().out
+
+    def test_warns_on_conflicting_targets(self, tmp_path, capsys):
+        (tmp_path / "dotfiles").mkdir()
+        (tmp_path / "dotfiles" / "a").write_text("x")
+        (tmp_path / "dotfiles" / "b").write_text("x")
+        out = tmp_path / "out"
+        out.mkdir()
+        shared = str(out / "shared")  # two sources -> one target
+        config = {"home": {"type": "dotfiles", "links": {
+            "dotfiles/a": shared,
+            "dotfiles/b": shared,
+        }}}
+        (tmp_path / "config.json").write_text(json.dumps(config), encoding="utf-8")
+
+        execute_deployment("home", repo_root=tmp_path, dry_run=True)
+
+        report = capsys.readouterr().out
+        assert "CONFLICT" in report and "a" in report and "b" in report
 
 
 class TestExecuteDeploymentExitCode:

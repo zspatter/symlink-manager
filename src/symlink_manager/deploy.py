@@ -49,6 +49,26 @@ def error_count(stats):
     """Tallies the link specs that failed (see ``ERROR_STATUSES``)."""
     return sum(stats.get(status, 0) for status in ERROR_STATUSES)
 
+def duplicate_targets(link_specs):
+    """Maps each target hit by more than one source to the offending sources."""
+    by_target = {}
+    for source, target in link_specs:
+        by_target.setdefault(target, []).append(source)
+    return {target: sources for target, sources in by_target.items() if len(sources) > 1}
+
+def warn_duplicate_targets(link_specs, blank_line_before=False):
+    """Prints a CONFLICT warning per target claimed by multiple sources.
+
+    Returns the conflicts mapping so callers can factor it into their result.
+    """
+    conflicts = duplicate_targets(link_specs)
+    if conflicts and blank_line_before:
+        print()
+    for target, sources in conflicts.items():
+        names = ", ".join(s.name for s in sources)
+        print(f"  [!] CONFLICT: multiple sources link to {target} ({names})")
+    return conflicts
+
 # ==============================================================================
 # Helper Functions (Link Management)
 # ==============================================================================
@@ -121,7 +141,8 @@ def safely_remove_symlink(target_path, dry_run=False):
         try:
             target_path.unlink()
             return DeployStatus.REMOVED
-        except OSError:
+        except OSError as e:
+            print(f"  [!] OS error: {e.strerror or e}: {target_path}")
             return DeployStatus.ERROR_OS
     else:
         return DeployStatus.ERROR_REAL_FILE
@@ -217,6 +238,8 @@ def execute_deployment(variant_key, is_removal=False, repo_root=None,
     type_name = profile.get("type", "skyrim_batch")
     print(f"  [*] Profile: {variant_key} ({type_name}) - {len(link_specs)} link(s) "
           f"[{context.platform}/{context.host}]\n")
+
+    warn_duplicate_targets(link_specs)  # surface last-writer-wins collisions up front
 
     stats = process_link_queue(link_specs, is_removal, dry_run=dry_run, backup=backup)
     print(build_smart_summary(stats, is_removal, dry_run=dry_run))
